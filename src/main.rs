@@ -11,31 +11,34 @@ fn apply_holomorphic_function(
     let (width, height) = img.dimensions();
     let mut transformed_img = RgbImage::new(width, height);
 
-    // Get image dimensions
-    let (width, height) = img.dimensions();
-
-    // Compute the center of the image to normalize coordinates
     let center_x = width as f64 / 2.0;
     let center_y = height as f64 / 2.0;
 
-    // Iterate over each pixel position (x, y)
-    for (x, y, pixel) in img.enumerate_pixels() {
-        // Normalize pixel positions to complex numbers relative to the image center
-        let cx = (x as f64 - center_x) / center_x;
-        let cy = (y as f64 - center_y) / center_y;
-        let complex_pos = Complex::new(cx, cy);
+    // Iterate over each pixel in the transformed image
+    for y in 0..height {
+        for x in 0..width {
+            // Normalize pixel positions to complex numbers
+            let cx = (x as f64 - center_x) / center_x;
+            let cy = (y as f64 - center_y) / center_y;
+            let complex_pos = Complex::new(cx, cy);
 
-        // Apply the holomorphic function to the complex position
-        let result = f(complex_pos);
+            // Apply the holomorphic function to the complex position
+            let result = f(complex_pos);
 
-        // Map the result back to image coordinates
-        let new_x = ((result.re * center_x) + center_x).round() as u32;
-        let new_y = ((result.im * center_y) + center_y).round() as u32;
+            // Map the result back to original image coordinates (inverse mapping)
+            let orig_x = ((result.re * center_x) + center_x).round();
+            let orig_y = ((result.im * center_y) + center_y).round();
 
-        // Ensure the new coordinates are within bounds
-        if new_x < width && new_y < height {
-            // Set the pixel at the new position to the original pixel color
-            transformed_img.put_pixel(new_x, new_y, *pixel);
+            // If the original coordinates are within bounds, apply bilinear interpolation
+            if orig_x >= 0.0
+                && orig_y >= 0.0
+                && orig_x < width as f64 - 1.0
+                && orig_y < height as f64 - 1.0
+            {
+                // Perform bilinear interpolation
+                let interpolated_pixel = bilinear_interpolation(img, orig_x, orig_y);
+                transformed_img.put_pixel(x, y, interpolated_pixel);
+            }
         }
     }
 
