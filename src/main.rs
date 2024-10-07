@@ -1,6 +1,8 @@
+use image::Rgb;
 use image::RgbImage;
 use num_complex::Complex;
 use std::env;
+use std::path::Path;
 
 fn apply_holomorphic_function(
     img: &RgbImage,
@@ -85,6 +87,32 @@ fn construct_polynomial(coefficients: Vec<f64>) -> impl Fn(Complex<f64>) -> Comp
     }
 }
 
+fn save_transformed_image(image_path: &str, coefficients: &[f64], transformed_img: RgbImage) {
+    // Extract the file name (without the directory) from the input path
+    let input_filename = Path::new(image_path)
+        .file_stem()
+        .expect("Failed to extract file name")
+        .to_str()
+        .expect("Failed to convert to string");
+
+    // Create a string with coefficients separated by underscores
+    let coefficients_str = coefficients
+        .iter()
+        .map(|coef| format!("{:.1}", coef)) // Convert each coefficient to string
+        .collect::<Vec<String>>()
+        .join("_");
+
+    // Generate the output filename
+    let output_filename = format!("./output/{}_{}.jpeg", input_filename, coefficients_str);
+
+    // Save the resulting image
+    transformed_img
+        .save(&output_filename)
+        .expect("Failed to save image");
+
+    println!("Image saved as: {}", output_filename);
+}
+
 fn main() {
     // Get command-line arguments: first is image path, rest are polynomial coefficients
     let args: Vec<String> = env::args().collect();
@@ -103,7 +131,7 @@ fn main() {
         .collect();
 
     // Construct the polynomial function
-    let holomorphic_fn = construct_polynomial(coefficients);
+    let holomorphic_fn = construct_polynomial(coefficients.clone());
 
     // Load the image
     let img = image::open(image_path)
@@ -113,8 +141,6 @@ fn main() {
     // Apply the holomorphic function to the image
     let transformed_img = apply_holomorphic_function(&img, holomorphic_fn);
 
-    // Save the resulting image
-    transformed_img
-        .save("./output/transformed_image.jpeg")
-        .expect("Failed to save image");
+    // Save the resulting image using the new function
+    save_transformed_image(image_path, &coefficients, transformed_img);
 }
