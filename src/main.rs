@@ -122,7 +122,7 @@ fn main() {
     // Get command-line arguments: first is image path, rest are polynomial coefficients
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 2 {
+    if args.len() < 3 {
         eprintln!("Usage: {} <image_name.extension> <coefficients...>", args[0]);
         return;
     }
