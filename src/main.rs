@@ -1,5 +1,4 @@
-use image::Rgb;
-use image::RgbImage;
+use image::{Rgb, RgbImage};
 use num_complex::Complex;
 use std::env;
 use std::path::Path;
@@ -17,28 +16,31 @@ fn apply_holomorphic_function(
     // Iterate over each pixel in the transformed image
     for y in 0..height {
         for x in 0..width {
-            // Normalize pixel positions to complex numbers
+            // Map the pixel in the target image back to a complex number
             let cx = (x as f64 - center_x) / center_x;
             let cy = (y as f64 - center_y) / center_y;
             let complex_pos = Complex::new(cx, cy);
 
-            // Apply the holomorphic function to the complex position
+            // Apply the inverse of the holomorphic function to find the corresponding source pixel
             let result = f(complex_pos);
 
             // Map the result back to original image coordinates (inverse mapping)
             let orig_x = ((result.re * center_x) + center_x).round();
             let orig_y = ((result.im * center_y) + center_y).round();
 
-            // If the original coordinates are within bounds, apply bilinear interpolation
-            if orig_x >= 0.0
+            // Sample the image at the computed source pixel, without strict boundary checks
+            let sampled_pixel = if orig_x >= 0.0
                 && orig_y >= 0.0
-                && orig_x < width as f64 - 1.0
-                && orig_y < height as f64 - 1.0
+                && orig_x < width as f64
+                && orig_y < height as f64
             {
-                // Perform bilinear interpolation
-                let interpolated_pixel = bilinear_interpolation(img, orig_x, orig_y);
-                transformed_img.put_pixel(x, y, interpolated_pixel);
-            }
+                bilinear_interpolation(img, orig_x, orig_y)
+            } else {
+                // Use a default pixel color if coordinates are out of bounds
+                Rgb([0, 0, 0])
+            };
+
+            transformed_img.put_pixel(x, y, sampled_pixel);
         }
     }
 
@@ -48,9 +50,9 @@ fn apply_holomorphic_function(
 // Bilinear interpolation function
 fn bilinear_interpolation(img: &RgbImage, x: f64, y: f64) -> Rgb<u8> {
     let x0 = x.floor() as u32;
-    let x1 = x.ceil() as u32;
+    let x1 = (x0 + 1).min(img.width() - 1);
     let y0 = y.floor() as u32;
-    let y1 = y.ceil() as u32;
+    let y1 = (y0 + 1).min(img.height() - 1);
 
     let px00 = img.get_pixel(x0, y0);
     let px01 = img.get_pixel(x0, y1);
@@ -106,7 +108,7 @@ fn save_transformed_image(image_path: &str, coefficients: &[f64], transformed_im
         .join("_");
 
     // Generate the output filename
-    let output_filename = format!("./output/{}_{}.jpeg", input_filename, coefficients_str);
+    let output_filename = format!("./images/output/{}_{}.jpeg", input_filename, coefficients_str);
 
     // Save the resulting image
     transformed_img
@@ -120,12 +122,13 @@ fn main() {
     // Get command-line arguments: first is image path, rest are polynomial coefficients
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 3 {
-        eprintln!("Usage: {} <image_path> <coefficients...>", args[0]);
+    if args.len() < 2 {
+        eprintln!("Usage: {} <image_name.extension> <coefficients...>", args[0]);
         return;
     }
 
-    let image_path = &args[1];
+    let image_path_string = format!("./images/input/{}", args[1].as_str());
+    let image_path: &str = &image_path_string;
 
     // Parse the remaining arguments as coefficients for the polynomial
     let coefficients: Vec<f64> = args[2..]
