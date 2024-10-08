@@ -1,0 +1,13 @@
+{
+  "name": "holomorphic-tinkering",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r run build",
+    "dev": "pnpm -r run dev",   
+    "start:cli": "cargo run --manifest-path backend/Cargo.toml", 
+    "start:frontend": "pnpm --filter frontend dev" 
+  },
+  "devDependencies": {
+    "pnpm": "^7.0.0"
+  }
+}
