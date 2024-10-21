@@ -17,13 +17,19 @@ Once you have Rust installed, follow these steps to run the project:
    git clone https://github.com/yourusername/your-repo-name.git
    ```
 
-2. **Put an image file into the `./src/images/input/` and call it `test_image.jpg`**
+2. **Put an image file into the `./src/images/input/` and call it for example `test.jpg`**
 
-3. **Run the program:**
+3. **Run the program (path = filename in input dic):**
 
+**Normal polynom f(z) = 0 + 1*z^1 + 3*z^2**
   ```bash
-  cargo run
+  cargo run test.jpg 0 1 3
   ```
 
-4. **The output image will be saved to `./output/test_image.jpeg`**
+**Fractional rational function f(z) = (3z + 2z^2 + 3) / (3*z^4)**
+  ```bash
+  cargo run test.jpg 3z+2z^2+3/3*z^4
+  ```
+
+4. **The output image will be saved to `./output/test_0.0_1.0_3.0.jpeg`**
 
