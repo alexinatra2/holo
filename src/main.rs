@@ -24,21 +24,16 @@ fn apply_holomorphic_function(
             // Apply the inverse of the holomorphic function to find the corresponding source pixel
             let result = f(complex_pos);
 
-            // Map the result back to original image coordinates (inverse mapping)
-            let orig_x = ((result.re * center_x) + center_x).round();
-            let orig_y = ((result.im * center_y) + center_y).round();
+            // Map the result back to original image coordinates => INVERSE MAPPING
+            let orig_x = result.re * center_x + center_x;
+            let orig_y = result.im * center_y + center_y;
 
-            // Sample the image at the computed source pixel, without strict boundary checks
-            let sampled_pixel = if orig_x >= 0.0
-                && orig_y >= 0.0
-                && orig_x < width as f64
-                && orig_y < height as f64
-            {
-                bilinear_interpolation(img, orig_x, orig_y)
-            } else {
-                // Use a default pixel color if coordinates are out of bounds
-                Rgb([0, 0, 0])
-            };
+            // Clamp the coordinates to ensure they are within bounds
+            let orig_x_clamped = orig_x.max(0.0).min(width as f64 - 1.0);
+            let orig_y_clamped = orig_y.max(0.0).min(height as f64 - 1.0);
+
+            // Sample the image at the computed source pixel, with bilinear interpolation
+            let sampled_pixel = bilinear_interpolation(img, orig_x_clamped, orig_y_clamped);
 
             transformed_img.put_pixel(x, y, sampled_pixel);
         }
