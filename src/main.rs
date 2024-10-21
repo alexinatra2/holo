@@ -2,6 +2,9 @@ use image::{imageops::resize, Rgb, RgbImage};
 use num_complex::Complex;
 use std::env;
 use std::path::Path;
+use regex::Regex;
+use std::str::FromStr;
+use std::num::ParseFloatError;
 
 // Factor for super-sampling
 const SUPER_SAMPLING_FACTOR: u32 = 4;
@@ -101,6 +104,38 @@ fn construct_polynomial(coefficients: Vec<f64>) -> impl Fn(Complex<f64>) -> Comp
     }
 }
 
+// Function to construct a rational function from numerator and denominator coefficients
+fn construct_rational_function(
+    numerator: Vec<f64>,
+    denominator: Vec<f64>,
+) -> impl Fn(Complex<f64>) -> Complex<f64> {
+    move |z: Complex<f64>| {
+        let mut num_result = Complex::new(0.0, 0.0);
+        let mut denom_result = Complex::new(0.0, 0.0);
+
+        // Calculate numerator
+        let mut z_pow = Complex::new(1.0, 0.0); // Start with z^0
+        for &coef in &numerator {
+            num_result += coef * z_pow;
+            z_pow *= z;
+        }
+
+        // Calculate denominator
+        z_pow = Complex::new(1.0, 0.0); // Reset to z^0
+        for &coef in &denominator {
+            denom_result += coef * z_pow;
+            z_pow *= z;
+        }
+
+        // Handle division by zero or very small denominator values
+        if denom_result.norm() < 1e-6 {
+            Complex::new(0.0, 0.0) // Return 0 if division by zero occurs
+        } else {
+            num_result / denom_result
+        }
+    }
+}
+
 fn save_transformed_image(image_path: &str, coefficients: &[f64], transformed_img: RgbImage) {
     // Extract the file name (without the directory) from the input path
     let input_filename = Path::new(image_path)
@@ -127,8 +162,49 @@ fn save_transformed_image(image_path: &str, coefficients: &[f64], transformed_im
     println!("Image saved as: {}", output_filename);
 }
 
+// Funktion zum Parsen der Polynomausdrücke (z.B. "3z + 2z^2 + 3")
+fn parse_polynomial_expression(input: &str) -> Result<Vec<f64>, ParseFloatError> {
+    let term_regex = Regex::new(r"([+-]?\d*\.?\d*)z(?:\^(\d+))?").unwrap();
+    let constant_regex = Regex::new(r"([+-]?\d*\.?\d+)$").unwrap();
+
+    let mut coefficients = vec![];
+
+    // Find all polynomial terms like "3z^2", "2z", etc.
+    for cap in term_regex.captures_iter(input) {
+        let coefficient_str = cap.get(1).map_or("1", |m| m.as_str()); // Default coefficient is 1 if omitted
+        let exponent_str = cap.get(2).map_or("1", |m| m.as_str()); // Default exponent is 1 if omitted
+        let coefficient: f64 = if coefficient_str == "+" || coefficient_str == "" {
+            1.0
+        } else if coefficient_str == "-" {
+            -1.0
+        } else {
+            f64::from_str(coefficient_str)?
+        };
+        let exponent: usize = exponent_str.parse().unwrap_or(1);
+
+        // Ensure the coefficients vector is large enough
+        if coefficients.len() <= exponent {
+            coefficients.resize(exponent + 1, 0.0);
+        }
+
+        // Add the coefficient to the corresponding power of z
+        coefficients[exponent] = coefficient;
+    }
+
+    // Find any constant term (no z)
+    if let Some(cap) = constant_regex.captures(input) {
+        let constant: f64 = f64::from_str(cap.get(1).unwrap().as_str())?;
+        if coefficients.is_empty() {
+            coefficients.push(constant);
+        } else {
+            coefficients[0] = constant;
+        }
+    }
+
+    Ok(coefficients)
+}
+
 fn main() {
-    // Get command-line arguments: first is image path, rest are polynomial coefficients
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 3 {
@@ -139,21 +215,45 @@ fn main() {
     let image_path_string = format!("./images/input/{}", args[1].as_str());
     let image_path: &str = &image_path_string;
 
-    // Parse the remaining arguments as coefficients for the polynomial
-    let coefficients: Vec<f64> = args[2..]
-        .iter()
-        .map(|arg| arg.parse::<f64>().expect("Invalid coefficient"))
-        .collect();
+    // Check if the input contains a rational function (indicated by a '/')
+    let input = args[2].as_str();
+    let holomorphic_fn: Box<dyn Fn(Complex<f64>) -> Complex<f64>>;
 
-    // Construct the polynomial function
-    let holomorphic_fn = construct_polynomial(coefficients.clone());
+    if input.contains('/') {
+        // Parse as a rational function
+        let parts: Vec<&str> = input.split('/').collect();
+        if parts.len() != 2 {
+            eprintln!("Invalid input format for rational function");
+            return;
+        }
+
+        // Parse numerator and denominator coefficients
+        let numerator = parse_polynomial_expression(parts[0]).expect("Failed to parse numerator");
+        let denominator = parse_polynomial_expression(parts[1]).expect("Failed to parse denominator");
+
+        holomorphic_fn = Box::new(construct_rational_function(numerator, denominator));
+    } else {
+        // Parse as a polynomial if no '/' is found (coefficients provided as arguments)
+        if args.len() < 3 {
+            eprintln!("Please provide coefficients for the polynomial.");
+            return;
+        }
+
+        // Collect coefficients from args[2..] and convert them to f64
+        let coefficients: Vec<f64> = args[2..]
+            .iter()
+            .map(|s| s.parse::<f64>().expect("Failed to parse coefficient"))
+            .collect();
+
+        holomorphic_fn = Box::new(construct_polynomial(coefficients.clone())); // Use clone here to pass to save function
+    }
 
     // Load the image
     let img = image::open(image_path)
         .expect("Failed to load image")
         .to_rgb8();
 
-    //SUPER_SAMPLING (ANTI-ALIASING)
+    //SUPER-SAMPLING (ANTI-ALIASING)
     // Step 1: Upscale the image
     let width = img.width() * SUPER_SAMPLING_FACTOR;
     let height = img.height() * SUPER_SAMPLING_FACTOR;
@@ -165,6 +265,15 @@ fn main() {
     // Step 3: Downscale the image back to the original size
     let final_img = resize(&transformed_img, img.width(), img.height(), image::imageops::FilterType::Lanczos3);
 
-    // Save the resulting image using the new function
+    // Save the resulting image using the coefficients (for naming)
+    let coefficients: Vec<f64> = if input.contains('/') {
+        parse_polynomial_expression(input).expect("Failed to parse coefficients") // For rational functions
+    } else {
+        args[2..]
+            .iter()
+            .map(|s| s.parse::<f64>().expect("Failed to parse coefficient"))
+            .collect() // For normal polynomials
+    };
+
     save_transformed_image(image_path, &coefficients, final_img);
 }
