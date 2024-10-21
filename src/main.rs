@@ -5,7 +5,10 @@ use std::path::Path;
 
 // Factor for super-sampling
 const SUPER_SAMPLING_FACTOR: u32 = 4;
+const SINGULARITY_THRESHOLD: f64 = 1e6; // Threshold to detect infinite values (singularity)
+const FALLBACK_PIXEL: Rgb<u8> = Rgb([0, 0, 0]); // Fallback pixel (black)
 
+// Apply holomorphic function with singularity handling
 fn apply_holomorphic_function(
     img: &RgbImage,
     f: impl Fn(Complex<f64>) -> Complex<f64>,
@@ -27,6 +30,13 @@ fn apply_holomorphic_function(
             // Apply the inverse of the holomorphic function to find the corresponding source pixel
             let result = f(complex_pos);
 
+            // Check for singularities (infinite values or extremely large values)
+            if result.re.abs() > SINGULARITY_THRESHOLD || result.im.abs() > SINGULARITY_THRESHOLD {
+                // Use fallback pixel if a singularity is detected
+                transformed_img.put_pixel(x, y, FALLBACK_PIXEL);
+                continue;
+            }
+
             // Map the result back to original image coordinates => INVERSE MAPPING
             let orig_x = result.re * center_x + center_x;
             let orig_y = result.im * center_y + center_y;
@@ -38,6 +48,7 @@ fn apply_holomorphic_function(
             // Sample the image at the computed source pixel, with bilinear interpolation
             let sampled_pixel = bilinear_interpolation(img, orig_x_clamped, orig_y_clamped);
 
+            // Set the transformed pixel
             transformed_img.put_pixel(x, y, sampled_pixel);
         }
     }
