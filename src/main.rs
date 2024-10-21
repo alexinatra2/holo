@@ -1,7 +1,10 @@
-use image::{Rgb, RgbImage};
+use image::{imageops::resize, Rgb, RgbImage};
 use num_complex::Complex;
 use std::env;
 use std::path::Path;
+
+// Factor for super-sampling
+const SUPER_SAMPLING_FACTOR: u32 = 4;
 
 fn apply_holomorphic_function(
     img: &RgbImage,
@@ -139,9 +142,18 @@ fn main() {
         .expect("Failed to load image")
         .to_rgb8();
 
-    // Apply the holomorphic function to the image
-    let transformed_img = apply_holomorphic_function(&img, holomorphic_fn);
+    //SUPER_SAMPLING (ANTI-ALIASING)
+    // Step 1: Upscale the image
+    let width = img.width() * SUPER_SAMPLING_FACTOR;
+    let height = img.height() * SUPER_SAMPLING_FACTOR;
+    let upscaled_img = resize(&img, width, height, image::imageops::FilterType::Lanczos3);
+
+    // Step 2: Apply the holomorphic function to the upscaled image
+    let transformed_img = apply_holomorphic_function(&upscaled_img, holomorphic_fn);
+
+    // Step 3: Downscale the image back to the original size
+    let final_img = resize(&transformed_img, img.width(), img.height(), image::imageops::FilterType::Lanczos3);
 
     // Save the resulting image using the new function
-    save_transformed_image(image_path, &coefficients, transformed_img);
+    save_transformed_image(image_path, &coefficients, final_img);
 }
