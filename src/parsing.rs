@@ -7,7 +7,7 @@ use nom::{
     sequence::{delimited, preceded, tuple},
     IResult,
 };
-use num_complex::Complex;
+use num_complex::{Complex, ComplexFloat};
 use std::str::FromStr;
 
 type CFunc = Box<dyn Fn(Complex<f64>) -> Complex<f64>>;
@@ -40,7 +40,22 @@ fn parse_constant(input: &str) -> IResult<&str, CFunc> {
 
 /// Parses functions like `cos(z)` or `exp(z)`.
 fn parse_function(input: &str) -> IResult<&str, CFunc> {
-    let (input, func_name) = alt((tag("cos"), tag("sin"), tag("exp")))(input)?;
+    let (input, func_name) = alt((
+        tag("cos"),
+        tag("sin"),
+        tag("exp"),
+        tag("tan"),
+        tag("sec"),
+        tag("csc"),
+        tag("cot"),
+        tag("log"),
+        tag("sqrt"),
+        tag("abs"),
+        tag("arg"),
+        tag("conj"),
+        tag("re"),
+        tag("im"),
+    ))(input)?;
 
     let (input, _) = multispace0(input)?;
     let (input, inner_func) = delimited(char('('), parse_expression, char(')'))(input)?;
@@ -49,6 +64,17 @@ fn parse_function(input: &str) -> IResult<&str, CFunc> {
         "cos" => Complex::cos,
         "sin" => Complex::sin,
         "exp" => Complex::exp,
+        "tan" => Complex::tan,
+        "sec" => |z: Complex<f64>| Complex::new(1.0, 0.0) / Complex::cos(z),
+        "csc" => |z: Complex<f64>| Complex::new(1.0, 0.0) / Complex::sin(z),
+        "cot" => |z: Complex<f64>| Complex::new(1.0, 0.0) / Complex::tan(z),
+        "log" => Complex::ln,
+        "sqrt" => Complex::sqrt,
+        "abs" => |z: Complex<f64>| Complex::new(z.re.abs(), z.im.abs()), // Abs as a complex function
+        "arg" => |z: Complex<f64>| Complex::new(z.arg(), 0.0), // Argument of the complex number
+        "conj" => |z: Complex<f64>| z.conj(),
+        "re" => |z: Complex<f64>| Complex::new(z.re, 0.0),
+        "im" => |z: Complex<f64>| Complex::new(0.0, z.im),
         _ => unreachable!(),
     };
 

@@ -58,8 +58,7 @@ fn main() {
 
     // Join remaining arguments as a single string to support expressions with spaces
     let input = args[2].as_str();
-    let (_, holomorphic_fn) =
-        parse_expression(&input).expect("Failed to parse polynomial coefficients");
+    let (_, holomorphic_fn) = parse_expression(input).expect("Failed to parse function expression");
 
     // Load the image
     let img = image::open(image_file_path)
