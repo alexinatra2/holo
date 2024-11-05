@@ -2,6 +2,7 @@ mod holo;
 mod interpolation;
 mod parsing;
 
+use chrono::Local;
 use holo::{apply_holomorphic_function, SUPER_SAMPLING_FACTOR};
 use image::{imageops::resize, RgbImage};
 use parsing::{parse_holomorphic_function, parse_polynomial_expression};
@@ -23,10 +24,12 @@ fn save_transformed_image(image_path: &str, coefficients: &[f64], transformed_im
         .collect::<Vec<String>>()
         .join("_");
 
+    let timestamp = Local::now().format("%Y%m%d%H%M%S").to_string();
+
     // Generate the output filename
     let output_filename = format!(
-        "./images/output/{}_{}.jpeg",
-        input_filename, coefficients_str
+        "./images/output/{}_{}_{}.jpeg",
+        input_filename, coefficients_str, timestamp
     );
 
     // Save the resulting image

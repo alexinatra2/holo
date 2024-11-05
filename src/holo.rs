@@ -4,7 +4,7 @@ use num_complex::Complex;
 use crate::interpolation::bilinear_interpolation;
 
 // Factor for super-sampling
-pub const SUPER_SAMPLING_FACTOR: u32 = 4;
+pub const SUPER_SAMPLING_FACTOR: u32 = 1;
 pub const SINGULARITY_THRESHOLD: f64 = 1e6; // Threshold to detect infinite values (singularity)
 pub const FALLBACK_PIXEL: Rgb<u8> = Rgb([0, 0, 0]); // Fallback pixel (black)
 
