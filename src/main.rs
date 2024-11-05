@@ -51,75 +51,76 @@ fn main() {
         return;
     }
 
-    let image_path_string = format!("./images/input/{}", args[1].as_str());
+    let image_file_path = Path::new(args[1].as_str());
+    let image_file_name = image_file_path.file_name().unwrap();
+    let image_path_string = format!("./images/output/{}", image_file_name.to_string_lossy());
     let image_path: &str = &image_path_string;
 
     // Check if the input contains a rational function (indicated by a '/')
     let input = args[2].as_str();
-    let holomorphic_fn: Box<dyn Fn(Complex<f64>) -> Complex<f64>>;
-
-    if input.contains('/') {
+    let holomorphic_fn: Option<Box<dyn Fn(Complex<f64>) -> Complex<f64>>> = if input.contains('/') {
         // Parse as a rational function
         let parts: Vec<&str> = input.split('/').collect();
         if parts.len() != 2 {
             eprintln!("Invalid input format for rational function");
-            return;
+            None
+        } else {
+            // Parse numerator and denominator coefficients
+            let numerator =
+                parse_polynomial_expression(parts[0]).expect("Failed to parse numerator");
+            let denominator =
+                parse_polynomial_expression(parts[1]).expect("Failed to parse denominator");
+
+            Some(Box::new(construct_rational_function(
+                numerator,
+                denominator,
+            )))
         }
-
-        // Parse numerator and denominator coefficients
-        let numerator = parse_polynomial_expression(parts[0]).expect("Failed to parse numerator");
-        let denominator =
-            parse_polynomial_expression(parts[1]).expect("Failed to parse denominator");
-
-        holomorphic_fn = Box::new(construct_rational_function(numerator, denominator));
     } else {
-        // Parse as a polynomial if no '/' is found (coefficients provided as arguments)
-        if args.len() < 3 {
-            eprintln!("Please provide coefficients for the polynomial.");
-            return;
-        }
-
         // Collect coefficients from args[2..] and convert them to f64
         let coefficients: Vec<f64> = args[2..]
             .iter()
             .map(|s| s.parse::<f64>().expect("Failed to parse coefficient"))
             .collect();
 
-        holomorphic_fn = Box::new(construct_polynomial(coefficients.clone())); // Use clone here to pass to save function
-    }
-
-    // Load the image
-    let img = image::open(image_path)
-        .expect("Failed to load image")
-        .to_rgb8();
-
-    //SUPER-SAMPLING (ANTI-ALIASING)
-    // Step 1: Upscale the image
-    let width = img.width() * SUPER_SAMPLING_FACTOR;
-    let height = img.height() * SUPER_SAMPLING_FACTOR;
-    let upscaled_img = resize(&img, width, height, image::imageops::FilterType::Lanczos3);
-
-    // Step 2: Apply the holomorphic function to the upscaled image
-    let transformed_img = apply_holomorphic_function(&upscaled_img, holomorphic_fn);
-
-    // Step 3: Downscale the image back to the original size
-    let final_img = resize(
-        &transformed_img,
-        img.width(),
-        img.height(),
-        image::imageops::FilterType::Lanczos3,
-    );
-
-    // Save the resulting image using the coefficients (for naming)
-    let coefficients: Vec<f64> = if input.contains('/') {
-        parse_polynomial_expression(input).expect("Failed to parse coefficients")
-    // For rational functions
-    } else {
-        args[2..]
-            .iter()
-            .map(|s| s.parse::<f64>().expect("Failed to parse coefficient"))
-            .collect() // For normal polynomials
+        Some(Box::new(construct_polynomial(coefficients.clone())))
     };
 
-    save_transformed_image(image_path, &coefficients, final_img);
+    if let Some(holo_fn) = holomorphic_fn {
+        // Load the image
+        let img = image::open(image_file_path)
+            .expect("Failed to load image")
+            .to_rgb8();
+
+        // Super-sampling (Anti-Aliasing)
+        // Step 1: Upscale the image
+        let width = img.width() * SUPER_SAMPLING_FACTOR;
+        let height = img.height() * SUPER_SAMPLING_FACTOR;
+        let upscaled_img = resize(&img, width, height, image::imageops::FilterType::Lanczos3);
+
+        // Step 2: Apply the holomorphic function to the upscaled image
+        let transformed_img = apply_holomorphic_function(&upscaled_img, holo_fn);
+
+        // Step 3: Downscale the image back to the original size
+        let final_img = resize(
+            &transformed_img,
+            img.width(),
+            img.height(),
+            image::imageops::FilterType::Lanczos3,
+        );
+
+        // Save the resulting image using the coefficients (for naming)
+        let coefficients: Vec<f64> = if input.contains('/') {
+            parse_polynomial_expression(input).expect("Failed to parse coefficients")
+        } else {
+            args[2..]
+                .iter()
+                .map(|s| s.parse::<f64>().expect("Failed to parse coefficient"))
+                .collect()
+        };
+
+        save_transformed_image(image_path, &coefficients, final_img);
+    } else {
+        eprintln!("No valid holomorphic function provided; transformation skipped.");
+    }
 }
