@@ -5,31 +5,28 @@ mod parsing;
 use chrono::Local;
 use holo::{apply_holomorphic_function, SUPER_SAMPLING_FACTOR};
 use image::{imageops::resize, RgbImage};
-use parsing::{parse_holomorphic_function, parse_polynomial_expression};
+use num_complex::{Complex64, ComplexFloat};
+use parsing::parse_holomorphic_function;
 use std::env;
 use std::path::Path;
 
-fn save_transformed_image(image_path: &str, coefficients: &[f64], transformed_img: RgbImage) {
-    // Extract the file name (without the directory) from the input path
+fn save_transformed_image(image_path: &str, coefficients_str: &str, transformed_img: RgbImage) {
+    // Extract the file name (without directory) from the input path
     let input_filename = Path::new(image_path)
         .file_stem()
         .expect("Failed to extract file name")
         .to_str()
         .expect("Failed to convert to string");
 
-    // Create a string with coefficients separated by underscores
-    let coefficients_str = coefficients
-        .iter()
-        .map(|coef| format!("{}", coef.round())) // Convert each coefficient to string
-        .collect::<Vec<String>>()
-        .join("_");
-
     let timestamp = Local::now().format("%Y%m%d%H%M%S").to_string();
+
+    // Replace '/' with 'div' for safe filename construction
+    let sanitized_coefficients_str = coefficients_str.replace("/", "div");
 
     // Generate the output filename
     let output_filename = format!(
         "./images/output/{}_{}_{}.jpeg",
-        input_filename, coefficients_str, timestamp
+        input_filename, sanitized_coefficients_str, timestamp
     );
 
     // Save the resulting image
@@ -56,7 +53,7 @@ fn main() {
     let image_path_string = format!("./images/output/{}", image_file_name.to_string_lossy());
     let image_path: &str = &image_path_string;
 
-    // Check if the input contains a rational function (indicated by a '/')
+    // Join remaining arguments as a single string to support expressions with spaces
     let input = args[2..].join(" ");
     let holomorphic_fn =
         parse_holomorphic_function(&input).expect("Failed to parse polynomial coefficients");
@@ -83,15 +80,20 @@ fn main() {
         image::imageops::FilterType::Lanczos3,
     );
 
-    // Save the resulting image using the coefficients (for naming)
-    let coefficients: Vec<f64> = if input.contains('/') {
-        parse_polynomial_expression(&input).expect("Failed to parse coefficients")
+    // Parse coefficients for naming, retaining '/' in the original string
+    let coefficients_str = if input.contains('/') {
+        input.clone()
     } else {
         args[2..]
             .iter()
-            .map(|s| s.parse::<f64>().expect("Failed to parse coefficient"))
-            .collect()
+            .map(|s| {
+                s.parse::<f64>()
+                    .expect("Failed to parse coefficient")
+                    .to_string()
+            })
+            .collect::<Vec<String>>()
+            .join("_")
     };
 
-    save_transformed_image(image_path, &coefficients, final_img);
+    save_transformed_image(image_path, &coefficients_str, final_img);
 }
