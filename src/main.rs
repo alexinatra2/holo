@@ -5,12 +5,11 @@ mod parsing;
 use chrono::Local;
 use holo::{apply_holomorphic_function, SUPER_SAMPLING_FACTOR};
 use image::{imageops::resize, RgbImage};
-use num_complex::{Complex64, ComplexFloat};
-use parsing::parse_holomorphic_function;
+use parsing::parse_expression;
 use std::env;
 use std::path::Path;
 
-fn save_transformed_image(image_path: &str, coefficients_str: &str, transformed_img: RgbImage) {
+fn save_transformed_image(image_path: &str, function_str: &str, transformed_img: RgbImage) {
     // Extract the file name (without directory) from the input path
     let input_filename = Path::new(image_path)
         .file_stem()
@@ -21,12 +20,16 @@ fn save_transformed_image(image_path: &str, coefficients_str: &str, transformed_
     let timestamp = Local::now().format("%Y%m%d%H%M%S").to_string();
 
     // Replace '/' with 'div' for safe filename construction
-    let sanitized_coefficients_str = coefficients_str.replace("/", "div");
+    let sanitized_function_str: String = function_str
+        .replace("/", "div")
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect();
 
     // Generate the output filename
     let output_filename = format!(
         "./images/output/{}_{}_{}.jpeg",
-        input_filename, sanitized_coefficients_str, timestamp
+        input_filename, sanitized_function_str, timestamp
     );
 
     // Save the resulting image
@@ -54,9 +57,9 @@ fn main() {
     let image_path: &str = &image_path_string;
 
     // Join remaining arguments as a single string to support expressions with spaces
-    let input = args[2..].join(" ");
-    let holomorphic_fn =
-        parse_holomorphic_function(&input).expect("Failed to parse polynomial coefficients");
+    let input = args[2].as_str();
+    let (_, holomorphic_fn) =
+        parse_expression(&input).expect("Failed to parse polynomial coefficients");
 
     // Load the image
     let img = image::open(image_file_path)
@@ -80,20 +83,5 @@ fn main() {
         image::imageops::FilterType::Lanczos3,
     );
 
-    // Parse coefficients for naming, retaining '/' in the original string
-    let coefficients_str = if input.contains('/') {
-        input.clone()
-    } else {
-        args[2..]
-            .iter()
-            .map(|s| {
-                s.parse::<f64>()
-                    .expect("Failed to parse coefficient")
-                    .to_string()
-            })
-            .collect::<Vec<String>>()
-            .join("_")
-    };
-
-    save_transformed_image(image_path, &coefficients_str, final_img);
+    save_transformed_image(image_path, input, final_img);
 }

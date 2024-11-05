@@ -1,67 +1,101 @@
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::{char, multispace0},
+    combinator::opt,
+    multi::separated_list0,
+    sequence::{delimited, preceded, tuple},
+    IResult,
+};
+use num_complex::Complex;
 use std::str::FromStr;
 
-use num_complex::Complex;
+type CFunc = Box<dyn Fn(Complex<f64>) -> Complex<f64>>;
 
-/// Parses a polynomial expression from a string of space-separated coefficients
-/// and returns them as a vector of coefficients.
-pub fn parse_polynomial_expression(input: &str) -> Result<Vec<f64>, String> {
-    input
-        .split_whitespace()
-        .map(f64::from_str)
-        .collect::<Result<Vec<f64>, _>>()
-        .map_err(|_| "Failed to parse coefficients".to_string())
+/// Parses the variable `z` with optional exponentiation, e.g., "z^2".
+fn parse_variable(input: &str) -> IResult<&str, CFunc> {
+    let (input, _) = tag("z")(input)?;
+    let (input, exponent) = opt(preceded(char('^'), nom::character::complete::digit1))(input)?;
+
+    // Parse the exponent as an integer, defaulting to 1 if not provided.
+    let exponent: u32 = exponent.map_or(1, |e| e.parse().unwrap_or(1));
+
+    Ok((
+        input,
+        Box::new(move |z: Complex<f64>| z.powf(exponent as f64)),
+    ))
 }
 
-/// Constructs a polynomial function from a list of coefficients.
-fn construct_polynomial(coefficients: Vec<f64>) -> impl Fn(Complex<f64>) -> Complex<f64> {
-    move |z: Complex<f64>| {
-        coefficients
-            .iter()
-            .rev()
-            .enumerate()
-            .fold(Complex::new(0.0, 0.0), |acc, (i, &coef)| {
-                acc + coef * z.powi(i as i32)
-            })
-    }
+/// Parses constants, e.g., "3.0", and returns them as closures.
+fn parse_constant(input: &str) -> IResult<&str, CFunc> {
+    let (input, constant) = nom::combinator::recognize(tuple((
+        opt(char('-')),
+        nom::character::complete::digit1,
+        opt(tuple((char('.'), nom::character::complete::digit1))),
+    )))(input)?;
+
+    let constant = Complex::from_str(constant).unwrap_or(Complex::new(0.0, 0.0));
+    Ok((input, Box::new(move |_| constant)))
 }
 
-/// Constructs a rational function from numerator and denominator coefficients.
-fn construct_rational_function(
-    numerator: Vec<f64>,
-    denominator: Vec<f64>,
-) -> impl Fn(Complex<f64>) -> Complex<f64> {
-    let numerator_fn = construct_polynomial(numerator);
-    let denominator_fn = construct_polynomial(denominator);
+/// Parses functions like `cos(z)` or `exp(z)`.
+fn parse_function(input: &str) -> IResult<&str, CFunc> {
+    let (input, func_name) = alt((tag("cos"), tag("sin"), tag("exp")))(input)?;
 
-    move |z: Complex<f64>| numerator_fn(z) / denominator_fn(z)
+    let (input, _) = multispace0(input)?;
+    let (input, inner_func) = delimited(char('('), parse_expression, char(')'))(input)?;
+
+    let function: fn(Complex<f64>) -> Complex<f64> = match func_name {
+        "cos" => Complex::cos,
+        "sin" => Complex::sin,
+        "exp" => Complex::exp,
+        _ => unreachable!(),
+    };
+
+    Ok((
+        input,
+        Box::new(move |z: Complex<f64>| function(inner_func(z))),
+    ))
 }
 
-/// Parses an input string to determine and return a closure representing
-/// either a polynomial or a rational function.
-pub fn parse_holomorphic_function(
-    input: &str,
-) -> Result<Box<dyn Fn(Complex<f64>) -> Complex<f64>>, String> {
-    if input.contains('/') {
-        // Split the input by '/' to separate numerator and denominator.
-        let parts: Vec<&str> = input.split('/').collect();
-        if parts.len() != 2 {
-            return Err("Invalid input format for rational function".to_string());
-        }
+/// Parses terms connected by addition, allowing `z + exp(z)`.
+fn parse_term(input: &str) -> IResult<&str, CFunc> {
+    let (input, initial) = parse_factor(input)?;
+    let (input, others) = separated_list0(preceded(multispace0, char('+')), parse_factor)(input)?;
 
-        // Parse numerator and denominator coefficients.
-        let numerator = parse_polynomial_expression(parts[0])?;
-        let denominator = parse_polynomial_expression(parts[1])?;
+    Ok((
+        input,
+        Box::new(move |z: Complex<f64>| {
+            let mut sum = initial(z);
+            for term in &others {
+                sum += term(z);
+            }
+            sum
+        }),
+    ))
+}
 
-        // Create and return the rational function as a closure.
-        Ok(Box::new(construct_rational_function(
-            numerator,
-            denominator,
-        )))
-    } else {
-        // Parse as a polynomial function.
-        let coefficients = parse_polynomial_expression(input)?;
+/// Parses multiplication between factors, allowing `2 * z` or `exp(z) * cos(z)`.
+fn parse_factor(input: &str) -> IResult<&str, CFunc> {
+    let (input, initial) = alt((parse_constant, parse_variable, parse_function))(input)?;
+    let (input, others) = separated_list0(
+        preceded(multispace0, char('*')),
+        alt((parse_constant, parse_variable, parse_function)),
+    )(input)?;
 
-        // Create and return the polynomial function as a closure.
-        Ok(Box::new(construct_polynomial(coefficients)))
-    }
+    Ok((
+        input,
+        Box::new(move |z: Complex<f64>| {
+            let mut product = initial(z);
+            for factor in &others {
+                product *= factor(z);
+            }
+            product
+        }),
+    ))
+}
+
+/// Parses an entire expression like `z + exp(z)`.
+pub fn parse_expression(input: &str) -> IResult<&str, CFunc> {
+    parse_term(input)
 }
