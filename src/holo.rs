@@ -27,7 +27,7 @@ pub fn apply_holomorphic_function(
             let cy = (y as f64 - center_y) / center_y;
             let complex_pos = Complex::new(cx, cy);
 
-            // Apply the inverse of the holomorphic function to find the corresponding source pixel
+            // Apply the holomorphic function to find the corresponding pixel position
             let result = f(complex_pos);
 
             // Check for singularities (infinite values or extremely large values)
@@ -41,12 +41,41 @@ pub fn apply_holomorphic_function(
             let orig_x = result.re * center_x + center_x;
             let orig_y = result.im * center_y + center_y;
 
-            // Clamp the coordinates to ensure they are within bounds
-            let orig_x_clamped = orig_x.max(0.0).min(width as f64 - 1.0);
-            let orig_y_clamped = orig_y.max(0.0).min(height as f64 - 1.0);
+            // Wrap coordinates to extend into three additional quadrants
+            let orig_x_extended = (orig_x + width as f64) % (width as f64 * 2.0);
+            let orig_y_extended = (orig_y + height as f64) % (height as f64 * 2.0);
 
-            // Sample the image at the computed source pixel, with bilinear interpolation
-            let sampled_pixel = bilinear_interpolation(img, orig_x_clamped, orig_y_clamped);
+            // Determine the final coordinates based on the quadrant
+            let (final_x, final_y) =
+                if orig_x_extended < width as f64 && orig_y_extended < height as f64 {
+                    // Quadrant I (original)
+                    (orig_x_extended, orig_y_extended)
+                } else if orig_x_extended >= width as f64 && orig_y_extended < height as f64 {
+                    // Quadrant II (flipped across y-axis)
+                    (
+                        width as f64 - (orig_x_extended % width as f64),
+                        orig_y_extended,
+                    )
+                } else if orig_x_extended < width as f64 && orig_y_extended >= height as f64 {
+                    // Quadrant III (flipped across x-axis)
+                    (
+                        orig_x_extended,
+                        height as f64 - (orig_y_extended % height as f64),
+                    )
+                } else {
+                    // Quadrant IV (flipped across both axes)
+                    (
+                        width as f64 - (orig_x_extended % width as f64),
+                        height as f64 - (orig_y_extended % height as f64),
+                    )
+                };
+
+            // Clamp the final coordinates to ensure they are within bounds
+            let final_x = final_x.max(0.0).min(width as f64 - 1.0) as u32;
+            let final_y = final_y.max(0.0).min(height as f64 - 1.0) as u32;
+
+            // Sample the image at the computed source pixel
+            let sampled_pixel = bilinear_interpolation(img, final_x as f64, final_y as f64);
 
             // Set the transformed pixel
             transformed_img.put_pixel(x, y, sampled_pixel);
