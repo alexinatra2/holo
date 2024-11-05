@@ -57,9 +57,9 @@ fn main() {
     let image_path: &str = &image_path_string;
 
     // Check if the input contains a rational function (indicated by a '/')
-    let input = args[2].as_str();
+    let input = args[2..].join(" ");
     let holomorphic_fn =
-        parse_holomorphic_function(input).expect("Failed to parse polynomial coefficients");
+        parse_holomorphic_function(&input).expect("Failed to parse polynomial coefficients");
 
     // Load the image
     let img = image::open(image_file_path)
@@ -85,7 +85,7 @@ fn main() {
 
     // Save the resulting image using the coefficients (for naming)
     let coefficients: Vec<f64> = if input.contains('/') {
-        parse_polynomial_expression(input).expect("Failed to parse coefficients")
+        parse_polynomial_expression(&input).expect("Failed to parse coefficients")
     } else {
         args[2..]
             .iter()
