@@ -1,13 +1,10 @@
 mod holo;
 mod interpolation;
 mod parsing;
-mod polynomial;
 
 use holo::{apply_holomorphic_function, SUPER_SAMPLING_FACTOR};
 use image::{imageops::resize, RgbImage};
-use num_complex::Complex;
-use parsing::parse_polynomial_expression;
-use polynomial::{construct_polynomial, construct_rational_function};
+use parsing::{parse_holomorphic_function, parse_polynomial_expression};
 use std::env;
 use std::path::Path;
 
@@ -22,7 +19,7 @@ fn save_transformed_image(image_path: &str, coefficients: &[f64], transformed_im
     // Create a string with coefficients separated by underscores
     let coefficients_str = coefficients
         .iter()
-        .map(|coef| format!("{:.1}", coef)) // Convert each coefficient to string
+        .map(|coef| format!("{}", coef.round())) // Convert each coefficient to string
         .collect::<Vec<String>>()
         .join("_");
 
@@ -58,69 +55,40 @@ fn main() {
 
     // Check if the input contains a rational function (indicated by a '/')
     let input = args[2].as_str();
-    let holomorphic_fn: Option<Box<dyn Fn(Complex<f64>) -> Complex<f64>>> = if input.contains('/') {
-        // Parse as a rational function
-        let parts: Vec<&str> = input.split('/').collect();
-        if parts.len() != 2 {
-            eprintln!("Invalid input format for rational function");
-            None
-        } else {
-            // Parse numerator and denominator coefficients
-            let numerator =
-                parse_polynomial_expression(parts[0]).expect("Failed to parse numerator");
-            let denominator =
-                parse_polynomial_expression(parts[1]).expect("Failed to parse denominator");
+    let holomorphic_fn =
+        parse_holomorphic_function(input).expect("Failed to parse polynomial coefficients");
 
-            Some(Box::new(construct_rational_function(
-                numerator,
-                denominator,
-            )))
-        }
+    // Load the image
+    let img = image::open(image_file_path)
+        .expect("Failed to load image")
+        .to_rgb8();
+
+    // Super-sampling (Anti-Aliasing)
+    // Step 1: Upscale the image
+    let width = img.width() * SUPER_SAMPLING_FACTOR;
+    let height = img.height() * SUPER_SAMPLING_FACTOR;
+    let upscaled_img = resize(&img, width, height, image::imageops::FilterType::Lanczos3);
+
+    // Step 2: Apply the holomorphic function to the upscaled image
+    let transformed_img = apply_holomorphic_function(&upscaled_img, holomorphic_fn);
+
+    // Step 3: Downscale the image back to the original size
+    let final_img = resize(
+        &transformed_img,
+        img.width(),
+        img.height(),
+        image::imageops::FilterType::Lanczos3,
+    );
+
+    // Save the resulting image using the coefficients (for naming)
+    let coefficients: Vec<f64> = if input.contains('/') {
+        parse_polynomial_expression(input).expect("Failed to parse coefficients")
     } else {
-        // Collect coefficients from args[2..] and convert them to f64
-        let coefficients: Vec<f64> = args[2..]
+        args[2..]
             .iter()
             .map(|s| s.parse::<f64>().expect("Failed to parse coefficient"))
-            .collect();
-
-        Some(Box::new(construct_polynomial(coefficients.clone())))
+            .collect()
     };
 
-    if let Some(holo_fn) = holomorphic_fn {
-        // Load the image
-        let img = image::open(image_file_path)
-            .expect("Failed to load image")
-            .to_rgb8();
-
-        // Super-sampling (Anti-Aliasing)
-        // Step 1: Upscale the image
-        let width = img.width() * SUPER_SAMPLING_FACTOR;
-        let height = img.height() * SUPER_SAMPLING_FACTOR;
-        let upscaled_img = resize(&img, width, height, image::imageops::FilterType::Lanczos3);
-
-        // Step 2: Apply the holomorphic function to the upscaled image
-        let transformed_img = apply_holomorphic_function(&upscaled_img, holo_fn);
-
-        // Step 3: Downscale the image back to the original size
-        let final_img = resize(
-            &transformed_img,
-            img.width(),
-            img.height(),
-            image::imageops::FilterType::Lanczos3,
-        );
-
-        // Save the resulting image using the coefficients (for naming)
-        let coefficients: Vec<f64> = if input.contains('/') {
-            parse_polynomial_expression(input).expect("Failed to parse coefficients")
-        } else {
-            args[2..]
-                .iter()
-                .map(|s| s.parse::<f64>().expect("Failed to parse coefficient"))
-                .collect()
-        };
-
-        save_transformed_image(image_path, &coefficients, final_img);
-    } else {
-        eprintln!("No valid holomorphic function provided; transformation skipped.");
-    }
+    save_transformed_image(image_path, &coefficients, final_img);
 }
