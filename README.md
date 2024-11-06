@@ -8,6 +8,14 @@ Brief project description goes here.
   
   You can install Rust by following the official [installation guide](https://www.rust-lang.org/tools/install) or simply install cargo using `sudo apt install cargo`
 
+```bash
+npm install --global pnpm
+pnpm -F react-frontend install
+pnpm run frontend
+```
+```
+```
+
 ## How to Run
 
 Once you have Rust installed, follow these steps to run the project:

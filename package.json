@@ -1,0 +1,7 @@
+{
+  "name": "holomorphic-tinkering",
+  "version": "0.1.0",
+  "scripts": {
+    "frontend": "pnpm --filter react-frontend dev"
+  }
+}

@@ -1,5 +1,7 @@
 /target
 /output
-/src/images/input
 !**/.gitkeep
+/pkg
+/images/output
+
 
