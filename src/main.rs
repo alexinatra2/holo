@@ -2,11 +2,26 @@ mod holo;
 mod parsing;
 
 use chrono::Local;
+use clap::{arg, command, Parser};
 use holo::apply_holomorphic_function;
 use image::RgbImage;
 use parsing::parse_expression;
-use std::env;
 use std::path::Path;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// The filename to process (supports file completion in some shells)
+    #[arg(value_name = "IMAGE_FILENAME", help = "Path to the file to process")]
+    image: String,
+
+    /// The function string to apply
+    #[arg(
+        value_name = "FUNCTION",
+        help = "Function to apply to the file contents"
+    )]
+    function: String,
+}
 
 fn save_transformed_image(image_path: &str, function_str: &str, transformed_img: RgbImage) {
     // Extract the file name (without directory) from the input path
@@ -40,23 +55,15 @@ fn save_transformed_image(image_path: &str, function_str: &str, transformed_img:
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let args = Cli::parse();
 
-    if args.len() < 3 {
-        eprintln!(
-            "Usage: {} <image_name.extension> <coefficients...>",
-            args[0]
-        );
-        return;
-    }
-
-    let image_file_path = Path::new(args[1].as_str());
+    let image_file_path = Path::new(&args.image);
     let image_file_name = image_file_path.file_name().unwrap();
     let image_path_string = format!("./images/output/{}", image_file_name.to_string_lossy());
     let image_path: &str = &image_path_string;
 
     // Join remaining arguments as a single string to support expressions with spaces
-    let input = args[2].as_str();
+    let input = &args.function;
     let (_, holomorphic_fn) = parse_expression(input).expect("Failed to parse function expression");
 
     // Load the image
