@@ -1,8 +1,8 @@
-use image::{Rgb, RgbImage};
+use image::{imageops::resize, Rgb, RgbImage};
 use num_complex::Complex;
 
 // Factor for super-sampling
-pub const SUPER_SAMPLING_FACTOR: u32 = 1;
+pub const SUPER_SAMPLING_FACTOR: u32 = 2;
 pub const SINGULARITY_THRESHOLD: f64 = 1e6; // Threshold to detect infinite values (singularity)
 pub const FALLBACK_PIXEL: Rgb<u8> = Rgb([0, 0, 0]); // Fallback pixel (black)
 
@@ -11,7 +11,9 @@ pub fn apply_holomorphic_function(
     img: &RgbImage,
     f: impl Fn(Complex<f64>) -> Complex<f64>,
 ) -> RgbImage {
-    let (width, height) = img.dimensions();
+    let width = img.width() * SUPER_SAMPLING_FACTOR;
+    let height = img.height() * SUPER_SAMPLING_FACTOR;
+    let upscaled_img = resize(img, width, height, image::imageops::FilterType::Lanczos3);
     let mut transformed_img = RgbImage::new(width, height);
 
     let center_x = width as f64 / 2.0;
@@ -73,14 +75,22 @@ pub fn apply_holomorphic_function(
             let final_y = final_y.max(0.0).min(height as f64 - 1.0) as u32;
 
             // Sample the image at the computed source pixel
-            let sampled_pixel = bilinear_interpolation(img, final_x as f64, final_y as f64);
+            let sampled_pixel =
+                bilinear_interpolation(&upscaled_img, final_x as f64, final_y as f64);
 
             // Set the transformed pixel
             transformed_img.put_pixel(x, y, sampled_pixel);
         }
     }
+    // Step 3: Downscale the image back to the original size
+    let final_img = resize(
+        &transformed_img,
+        img.width(),
+        img.height(),
+        image::imageops::FilterType::Lanczos3,
+    );
 
-    transformed_img
+    final_img
 }
 
 // Bilinear interpolation function

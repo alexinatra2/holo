@@ -2,8 +2,8 @@ mod holo;
 mod parsing;
 
 use chrono::Local;
-use holo::{apply_holomorphic_function, SUPER_SAMPLING_FACTOR};
-use image::{imageops::resize, RgbImage};
+use holo::apply_holomorphic_function;
+use image::RgbImage;
 use parsing::parse_expression;
 use std::env;
 use std::path::Path;
@@ -64,22 +64,7 @@ fn main() {
         .expect("Failed to load image")
         .to_rgb8();
 
-    // Super-sampling (Anti-Aliasing)
-    // Step 1: Upscale the image
-    let width = img.width() * SUPER_SAMPLING_FACTOR;
-    let height = img.height() * SUPER_SAMPLING_FACTOR;
-    let upscaled_img = resize(&img, width, height, image::imageops::FilterType::Lanczos3);
+    let transformed_img = apply_holomorphic_function(&img, holomorphic_fn);
 
-    // Step 2: Apply the holomorphic function to the upscaled image
-    let transformed_img = apply_holomorphic_function(&upscaled_img, holomorphic_fn);
-
-    // Step 3: Downscale the image back to the original size
-    let final_img = resize(
-        &transformed_img,
-        img.width(),
-        img.height(),
-        image::imageops::FilterType::Lanczos3,
-    );
-
-    save_transformed_image(image_path, input, final_img);
+    save_transformed_image(image_path, input, transformed_img);
 }
