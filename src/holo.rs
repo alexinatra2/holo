@@ -16,8 +16,7 @@ pub struct HolomorphicLookup {
 
 impl HolomorphicLookup {
     /// Creates a new holomorphic lookup table for an image and a transformation function
-    pub fn new(img: &RgbImage, f: impl Fn(Complex<f64>) -> Complex<f64>) -> Self {
-        let (width, height) = img.dimensions();
+    pub fn new(f: impl Fn(Complex<f64>) -> Complex<f64>, width: u32, height: u32) -> Self {
         let center_x = width as f64 / 2.0;
         let center_y = height as f64 / 2.0;
 

@@ -6,7 +6,7 @@ pub mod webcam;
 use std::io::Cursor;
 
 use holo::HolomorphicLookup;
-use image::{codecs::png::PngEncoder, ExtendedColorType, ImageEncoder, RgbImage};
+use image::{codecs::png::PngEncoder, ExtendedColorType, GenericImageView, ImageEncoder, RgbImage};
 use parsing::parse_expression;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -29,9 +29,10 @@ pub fn transform_image(
 
     // Convert the input image data into an image object
     let img = RgbImage::from_raw(width, height, image_data).unwrap();
+    let (width, height) = img.dimensions();
 
     // Apply the holomorphic function to the image
-    let lookup = HolomorphicLookup::new(&img, parsed_function);
+    let lookup = HolomorphicLookup::new(parsed_function, width, height);
     let transformed_img = lookup.apply(&img)?;
 
     // Convert the transformed image back to a byte vector for returning as a result

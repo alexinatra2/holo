@@ -6,7 +6,7 @@ mod webcam;
 use chrono::Local;
 use clap::{arg, command, Parser};
 use holo::HolomorphicLookup;
-use image::RgbImage;
+use image::{GenericImageView, RgbImage};
 use parsing::parse_expression;
 use std::path::Path;
 
@@ -73,7 +73,9 @@ fn main() {
         .expect("Failed to load image")
         .to_rgb8();
 
-    let lookup = HolomorphicLookup::new(&img, holomorphic_fn);
+    let (width, height) = img.dimensions();
+
+    let lookup = HolomorphicLookup::new(holomorphic_fn, width, height);
     if let Some(transformed_img) = lookup.apply(&img) {
         save_transformed_image(image_path, input, transformed_img);
     } else {
