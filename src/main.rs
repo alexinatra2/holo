@@ -51,53 +51,57 @@ fn save_transformed_image(image_path: &str, function_str: &str, transformed_img:
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
+
     let (width, height) = args.dimensions.unwrap();
-
-    let mut cap = VideoCapture::new(0, CAP_ANY)?; // 0 is the default camera
-    cap.set(CAP_PROP_FRAME_WIDTH, width as f64)?;
-    cap.set(CAP_PROP_FRAME_HEIGHT, height as f64)?;
-
-    // Create display window
-    let mut window = Window::new(
-        "Holomorphic Webcam",
-        width as usize,
-        height as usize,
-        WindowOptions::default(),
-    )
-    .expect("Failed to create window");
-
-    // let image_file_path = Path::new(&args.image);
-    // let image_file_name = image_file_path.file_name().unwrap();
-    // let image_path_string = format!("./images/output/{}", image_file_name.to_string_lossy());
-    // let image_path: &str = &image_path_string;
-
-    // Join remaining arguments as a single string to support expressions with spaces
     let input = &args.function;
     let (_, holomorphic_fn) = parse_expression(input).expect("Failed to parse function expression");
 
-    // Load the image
-    // let img = image::open(image_file_path)
-    //     .expect("Failed to load image")
-    //     .to_rgb8();
-    //
-    // let (width, height) = img.dimensions();
-
     let lookup = HolomorphicLookup::new(holomorphic_fn, width, height);
 
-    // if let Some(transformed_img) = lookup.apply(&img) {
-    //     save_transformed_image(image_path, input, transformed_img);
-    // } else {
-    //     eprint!("transforming image unsuccessful");
-    // }
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        // Capture frame from webcam
-        if let Some(frame) = capture_frame(&mut cap) {
-            // Apply transformation
-            if let Some(transformed_image) = process_frame(&lookup, &frame) {
-                // Display the transformed frame
-                display_image(&mut window, &transformed_image);
+    match args.image {
+        Some(file_path) => {
+            let image_file_path = Path::new(&file_path);
+            let image_file_name = image_file_path.file_name().unwrap();
+            let image_path_string =
+                format!("./images/output/{}", image_file_name.to_string_lossy());
+            let image_path: &str = &image_path_string;
+
+            // Load the image
+            let img = image::open(image_file_path)
+                .expect("Failed to load image")
+                .to_rgb8();
+
+            if let Some(transformed_img) = lookup.apply(&img) {
+                save_transformed_image(image_path, input, transformed_img);
+            } else {
+                eprint!("transforming image unsuccessful");
+            }
+        }
+        None => {
+            let mut cap = VideoCapture::new(0, CAP_ANY)?; // 0 is the default camera
+            cap.set(CAP_PROP_FRAME_WIDTH, width as f64)?;
+            cap.set(CAP_PROP_FRAME_HEIGHT, height as f64)?;
+
+            // Create display window
+            let mut window = Window::new(
+                "Holomorphic Webcam",
+                width as usize,
+                height as usize,
+                WindowOptions::default(),
+            )
+            .expect("Failed to create window");
+            while window.is_open() && !window.is_key_down(Key::Escape) {
+                // Capture frame from webcam
+                if let Some(frame) = capture_frame(&mut cap) {
+                    // Apply transformation
+                    if let Some(transformed_image) = process_frame(&lookup, &frame) {
+                        // Display the transformed frame
+                        display_image(&mut window, &transformed_image);
+                    }
+                }
             }
         }
     }
+
     Ok(())
 }
