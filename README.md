@@ -8,12 +8,27 @@ Brief project description goes here.
   
   You can install Rust by following the official [installation guide](https://www.rust-lang.org/tools/install) or simply install cargo using `sudo apt install cargo`
 
+- **Node**: To run the frontend application you need to have a node runtime installed. Setting this
+up is easiest accomplished using [nvm](`https://github.com/nvm-sh/nvm`). Once installed, ensure
+`npm` is installed using the below commands:
+
+```bash
+nvm install Iron
+nvm use Iron
+```
+- **pnpm** (optional): To run using a faster (Rust-based) node package manager, install `pnpm`
+using the following commands:
+
 ```bash
 npm install --global pnpm
 pnpm -F react-frontend install
 pnpm run frontend
 ```
-```
+- **opencv**: for the webcam to work you will need to install the required system libraries:
+
+```bash
+sudo apt update
+sudo apt install libopencv-dev pkg-config
 ```
 
 ## How to Run
