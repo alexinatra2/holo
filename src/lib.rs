@@ -6,7 +6,7 @@ pub mod webcam;
 use std::io::Cursor;
 
 use holo::HolomorphicLookup;
-use image::{codecs::png::PngEncoder, ExtendedColorType, GenericImageView, ImageEncoder, RgbImage};
+use image::{codecs::png::PngEncoder, ExtendedColorType, ImageEncoder, RgbImage};
 use parsing::parse_expression;
 use wasm_bindgen::prelude::wasm_bindgen;
 

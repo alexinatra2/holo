@@ -6,7 +6,7 @@ mod webcam;
 use chrono::Local;
 use clap::{arg, command, Parser};
 use holo::HolomorphicLookup;
-use image::{GenericImageView, RgbImage};
+use image::RgbImage;
 use parsing::parse_expression;
 use std::path::Path;
 
@@ -14,7 +14,11 @@ use std::path::Path;
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// The filename to process (supports file completion in some shells)
-    #[arg(value_name = "IMAGE_FILENAME", help = "Path to the file to process")]
+    #[arg(
+        value_name = "IMAGE_FILENAME",
+        help = "Path to the file to process",
+        value_hint = clap::ValueHint::FilePath
+    )]
     image: String,
 
     /// The function string to apply
@@ -76,6 +80,7 @@ fn main() {
     let (width, height) = img.dimensions();
 
     let lookup = HolomorphicLookup::new(holomorphic_fn, width, height);
+
     if let Some(transformed_img) = lookup.apply(&img) {
         save_transformed_image(image_path, input, transformed_img);
     } else {
