@@ -78,7 +78,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         None => {
-            let (width, height) = args.dimensions.unwrap();
+            // Determine width and height based on resolution or dimensions
+            let (width, height) = if let Some(res) = args.resolution {
+                res.to_dimensions()
+            } else {
+                args.dimensions.unwrap_or((640, 480)) // Default dimensions if none provided
+            };
             let lookup = HolomorphicLookup::new(holomorphic_fn, width, height);
             let mut cap = VideoCapture::new(0, CAP_ANY)?; // 0 is the default camera
             cap.set(CAP_PROP_FRAME_WIDTH, width as f64)?;
