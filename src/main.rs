@@ -1,5 +1,7 @@
+mod display;
 mod holo;
 mod parsing;
+mod webcam;
 
 use chrono::Local;
 use clap::{arg, command, Parser};
@@ -72,7 +74,7 @@ fn main() {
         .to_rgb8();
 
     let lookup = HolomorphicLookup::new(&img, holomorphic_fn);
-    if let Some(transformed_img) = lookup.apply() {
+    if let Some(transformed_img) = lookup.apply(&img) {
         save_transformed_image(image_path, input, transformed_img);
     } else {
         eprint!("transforming image unsuccessful");

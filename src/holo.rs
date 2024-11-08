@@ -1,5 +1,8 @@
 use image::{Rgb, RgbImage};
 use num_complex::Complex;
+use opencv::core::Mat;
+
+use crate::webcam::mat_to_rgb_image;
 
 pub const SINGULARITY_THRESHOLD: f64 = 1e6; // Threshold to detect infinite values (singularity)
 pub const FALLBACK_PIXEL: Rgb<u8> = Rgb([0, 0, 0]); // Fallback pixel (black)
@@ -9,7 +12,6 @@ pub struct HolomorphicLookup {
     lookup: Vec<u32>,
     width: u32,
     height: u32,
-    source_image: RgbImage, // Stores the image for transformations
 }
 
 impl HolomorphicLookup {
@@ -69,8 +71,8 @@ impl HolomorphicLookup {
                     };
 
                 // Clamp coordinates and convert to index
-                let final_x = final_x.clamp(width as f64 - 1.0, 0.0);
-                let final_y = final_y.clamp(height as f64 - 1.0, 0.0);
+                let final_x = final_x.clamp(0.0, width as f64 - 1.0) as u32;
+                let final_y = final_y.clamp(0.0, height as f64 - 1.0) as u32;
 
                 // Calculate and store the index for the transformed coordinates
                 let pixel_index = final_y * width + final_x;
@@ -82,13 +84,7 @@ impl HolomorphicLookup {
             lookup,
             width,
             height,
-            source_image: img.clone(),
         }
-    }
-
-    /// Sets the source image to be used for transformations
-    pub fn set_image(&mut self, img: RgbImage) {
-        self.source_image = img;
     }
 
     /// Retrieve the mapped pixel index for a given (x, y) position
@@ -102,10 +98,7 @@ impl HolomorphicLookup {
     }
 
     /// Applies the lookup to transform the image based on the precomputed positions
-    pub fn apply(&self) -> Option<RgbImage> {
-        // Check that a source image has been set
-        let source_image = &self.source_image;
-
+    pub fn apply(&self, img: &RgbImage) -> Option<RgbImage> {
         let mut transformed_img = RgbImage::new(self.width, self.height);
 
         for y in 0..self.height {
@@ -113,7 +106,7 @@ impl HolomorphicLookup {
                 if let Some(mapped_index) = self.get(x, y) {
                     let orig_x = mapped_index % self.width;
                     let orig_y = mapped_index / self.width;
-                    let pixel = source_image.get_pixel(orig_x, orig_y);
+                    let pixel = img.get_pixel(orig_x, orig_y);
                     transformed_img.put_pixel(x, y, *pixel);
                 } else {
                     // Fallback if lookup fails (optional)
@@ -124,4 +117,9 @@ impl HolomorphicLookup {
 
         Some(transformed_img)
     }
+}
+
+pub fn process_frame(lookup: &HolomorphicLookup, mat: &Mat) -> Option<RgbImage> {
+    let img = mat_to_rgb_image(mat)?;
+    lookup.apply(&img)
 }

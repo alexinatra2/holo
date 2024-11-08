@@ -1,5 +1,7 @@
-mod holo;
-mod parsing;
+pub mod display;
+pub mod holo;
+pub mod parsing;
+pub mod webcam;
 
 use std::io::Cursor;
 
@@ -30,7 +32,7 @@ pub fn transform_image(
 
     // Apply the holomorphic function to the image
     let lookup = HolomorphicLookup::new(&img, parsed_function);
-    let transformed_img = lookup.apply()?;
+    let transformed_img = lookup.apply(&img)?;
 
     // Convert the transformed image back to a byte vector for returning as a result
     let mut transformed_data = Vec::new();
