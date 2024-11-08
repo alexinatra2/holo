@@ -9,9 +9,9 @@ pub const FALLBACK_PIXEL: Rgb<u8> = Rgb([0, 0, 0]); // Fallback pixel (black)
 
 /// Struct to hold the lookup table for holomorphic transformations
 pub struct HolomorphicLookup {
-    lookup: Vec<u32>,
-    width: u32,
-    height: u32,
+    pub lookup: Vec<u32>,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl HolomorphicLookup {

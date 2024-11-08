@@ -52,11 +52,8 @@ fn save_transformed_image(image_path: &str, function_str: &str, transformed_img:
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
 
-    let (width, height) = args.dimensions.unwrap();
     let input = &args.function;
     let (_, holomorphic_fn) = parse_expression(input).expect("Failed to parse function expression");
-
-    let lookup = HolomorphicLookup::new(holomorphic_fn, width, height);
 
     match args.image {
         Some(file_path) => {
@@ -71,6 +68,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .expect("Failed to load image")
                 .to_rgb8();
 
+            let (width, height) = img.dimensions();
+            let lookup = HolomorphicLookup::new(holomorphic_fn, width, height);
+
             if let Some(transformed_img) = lookup.apply(&img) {
                 save_transformed_image(image_path, input, transformed_img);
             } else {
@@ -78,6 +78,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         None => {
+            let (width, height) = args.dimensions.unwrap();
+            let lookup = HolomorphicLookup::new(holomorphic_fn, width, height);
             let mut cap = VideoCapture::new(0, CAP_ANY)?; // 0 is the default camera
             cap.set(CAP_PROP_FRAME_WIDTH, width as f64)?;
             cap.set(CAP_PROP_FRAME_HEIGHT, height as f64)?;
