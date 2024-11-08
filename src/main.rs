@@ -3,7 +3,7 @@ mod parsing;
 
 use chrono::Local;
 use clap::{arg, command, Parser};
-use holo::apply_holomorphic_function;
+use holo::HolomorphicLookup;
 use image::RgbImage;
 use parsing::parse_expression;
 use std::path::Path;
@@ -71,7 +71,10 @@ fn main() {
         .expect("Failed to load image")
         .to_rgb8();
 
-    let transformed_img = apply_holomorphic_function(&img, holomorphic_fn);
-
-    save_transformed_image(image_path, input, transformed_img);
+    let lookup = HolomorphicLookup::new(&img, holomorphic_fn);
+    if let Some(transformed_img) = lookup.apply() {
+        save_transformed_image(image_path, input, transformed_img);
+    } else {
+        eprint!("transforming image unsuccessful");
+    }
 }

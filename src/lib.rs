@@ -3,20 +3,25 @@ mod parsing;
 
 use std::io::Cursor;
 
-use holo::apply_holomorphic_function;
+use holo::HolomorphicLookup;
 use image::{codecs::png::PngEncoder, ExtendedColorType, ImageEncoder, RgbImage};
 use parsing::parse_expression;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
-pub fn transform_image(image_data: Vec<u8>, func_str: String, width: u32, height: u32) -> Vec<u8> {
+pub fn transform_image(
+    image_data: Vec<u8>,
+    func_str: String,
+    width: u32,
+    height: u32,
+) -> Option<Vec<u8>> {
     // Parse the holomorphic function from the string
     let parsed_function = match parse_expression(&func_str) {
         Ok((_, func)) => func,
         Err(e) => {
             // Return an empty vector or handle the error (invalid function)
             eprintln!("Error parsing function: {:?}", e);
-            return Vec::new();
+            return None;
         }
     };
 
@@ -24,7 +29,8 @@ pub fn transform_image(image_data: Vec<u8>, func_str: String, width: u32, height
     let img = RgbImage::from_raw(width, height, image_data).unwrap();
 
     // Apply the holomorphic function to the image
-    let transformed_img = apply_holomorphic_function(&img, parsed_function);
+    let lookup = HolomorphicLookup::new(&img, parsed_function);
+    let transformed_img = lookup.apply()?;
 
     // Convert the transformed image back to a byte vector for returning as a result
     let mut transformed_data = Vec::new();
@@ -40,5 +46,5 @@ pub fn transform_image(image_data: Vec<u8>, func_str: String, width: u32, height
         )
         .expect("Failed to encode PNG image");
 
-    transformed_data
+    Some(transformed_data)
 }

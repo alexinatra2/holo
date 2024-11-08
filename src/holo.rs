@@ -1,126 +1,127 @@
-use image::{imageops::resize, Rgb, RgbImage};
+use image::{Rgb, RgbImage};
 use num_complex::Complex;
 
-// Factor for super-sampling
-pub const SUPER_SAMPLING_FACTOR: u32 = 2;
 pub const SINGULARITY_THRESHOLD: f64 = 1e6; // Threshold to detect infinite values (singularity)
 pub const FALLBACK_PIXEL: Rgb<u8> = Rgb([0, 0, 0]); // Fallback pixel (black)
 
-// Apply holomorphic function with singularity handling
-pub fn apply_holomorphic_function(
-    img: &RgbImage,
-    f: impl Fn(Complex<f64>) -> Complex<f64>,
-) -> RgbImage {
-    let width = img.width() * SUPER_SAMPLING_FACTOR;
-    let height = img.height() * SUPER_SAMPLING_FACTOR;
-    let upscaled_img = resize(img, width, height, image::imageops::FilterType::Lanczos3);
-    let mut transformed_img = RgbImage::new(width, height);
-
-    let center_x = width as f64 / 2.0;
-    let center_y = height as f64 / 2.0;
-
-    // Iterate over each pixel in the transformed image
-    for y in 0..height {
-        for x in 0..width {
-            // Map the pixel in the target image back to a complex number
-            let cx = (x as f64 - center_x) / center_x;
-            let cy = (y as f64 - center_y) / center_y;
-            let complex_pos = Complex::new(cx, cy);
-
-            // Apply the holomorphic function to find the corresponding pixel position
-            let result = f(complex_pos);
-
-            // Check for singularities (infinite values or extremely large values)
-            if result.re.abs() > SINGULARITY_THRESHOLD || result.im.abs() > SINGULARITY_THRESHOLD {
-                // Use fallback pixel if a singularity is detected
-                transformed_img.put_pixel(x, y, FALLBACK_PIXEL);
-                continue;
-            }
-
-            // Map the result back to original image coordinates => INVERSE MAPPING
-            let orig_x = result.re * center_x + center_x;
-            let orig_y = result.im * center_y + center_y;
-
-            // Wrap coordinates to extend into three additional quadrants
-            let orig_x_extended = (orig_x + width as f64) % (width as f64 * 2.0);
-            let orig_y_extended = (orig_y + height as f64) % (height as f64 * 2.0);
-
-            // Determine the final coordinates based on the quadrant
-            let (final_x, final_y) =
-                if orig_x_extended < width as f64 && orig_y_extended < height as f64 {
-                    // Quadrant I (original)
-                    (orig_x_extended, orig_y_extended)
-                } else if orig_x_extended >= width as f64 && orig_y_extended < height as f64 {
-                    // Quadrant II (flipped across y-axis)
-                    (
-                        width as f64 - (orig_x_extended % width as f64),
-                        orig_y_extended,
-                    )
-                } else if orig_x_extended < width as f64 && orig_y_extended >= height as f64 {
-                    // Quadrant III (flipped across x-axis)
-                    (
-                        orig_x_extended,
-                        height as f64 - (orig_y_extended % height as f64),
-                    )
-                } else {
-                    // Quadrant IV (flipped across both axes)
-                    (
-                        width as f64 - (orig_x_extended % width as f64),
-                        height as f64 - (orig_y_extended % height as f64),
-                    )
-                };
-
-            // Clamp the final coordinates to ensure they are within bounds
-            let final_x = final_x.max(0.0).min(width as f64 - 1.0) as u32;
-            let final_y = final_y.max(0.0).min(height as f64 - 1.0) as u32;
-
-            // Sample the image at the computed source pixel
-            let sampled_pixel =
-                bilinear_interpolation(&upscaled_img, final_x as f64, final_y as f64);
-
-            // Set the transformed pixel
-            transformed_img.put_pixel(x, y, sampled_pixel);
-        }
-    }
-    // Step 3: Downscale the image back to the original size
-    let final_img = resize(
-        &transformed_img,
-        img.width(),
-        img.height(),
-        image::imageops::FilterType::Lanczos3,
-    );
-
-    final_img
+/// Struct to hold the lookup table for holomorphic transformations
+pub struct HolomorphicLookup {
+    lookup: Vec<u32>,
+    width: u32,
+    height: u32,
+    source_image: RgbImage, // Stores the image for transformations
 }
 
-// Bilinear interpolation function
-pub fn bilinear_interpolation(img: &RgbImage, x: f64, y: f64) -> Rgb<u8> {
-    let x0 = x.floor() as u32;
-    let x1 = (x0 + 1).min(img.width() - 1);
-    let y0 = y.floor() as u32;
-    let y1 = (y0 + 1).min(img.height() - 1);
+impl HolomorphicLookup {
+    /// Creates a new holomorphic lookup table for an image and a transformation function
+    pub fn new(img: &RgbImage, f: impl Fn(Complex<f64>) -> Complex<f64>) -> Self {
+        let (width, height) = img.dimensions();
+        let center_x = width as f64 / 2.0;
+        let center_y = height as f64 / 2.0;
 
-    let px00 = img.get_pixel(x0, y0);
-    let px01 = img.get_pixel(x0, y1);
-    let px10 = img.get_pixel(x1, y0);
-    let px11 = img.get_pixel(x1, y1);
+        // Initialize lookup table vector
+        let mut lookup = Vec::with_capacity((width * height) as usize);
 
-    let x_weight = x - x0 as f64;
-    let y_weight = y - y0 as f64;
+        for y in 0..height {
+            for x in 0..width {
+                // Map pixel position to complex coordinates
+                let cx = (x as f64 - center_x) / center_x;
+                let cy = (y as f64 - center_y) / center_y;
+                let complex_pos = Complex::new(cx, cy);
 
-    let interpolate =
-        |a: u8, b: u8, weight: f64| -> u8 { ((1.0 - weight) * a as f64 + weight * b as f64) as u8 };
+                // Apply holomorphic function
+                let result = f(complex_pos);
 
-    let interpolate_rgb = |c1: &Rgb<u8>, c2: &Rgb<u8>, weight: f64| -> Rgb<u8> {
-        Rgb([
-            interpolate(c1[0], c2[0], weight),
-            interpolate(c1[1], c2[1], weight),
-            interpolate(c1[2], c2[2], weight),
-        ])
-    };
+                // Check for singularities
+                if result.re.abs() > SINGULARITY_THRESHOLD
+                    || result.im.abs() > SINGULARITY_THRESHOLD
+                {
+                    lookup.push((height - 1) * width); // Example index to indicate fallback
+                    continue;
+                }
 
-    // Interpolate the four surrounding pixels
-    let top = interpolate_rgb(px00, px10, x_weight);
-    let bottom = interpolate_rgb(px01, px11, x_weight);
-    interpolate_rgb(&top, &bottom, y_weight)
+                // Map the result back to original image coordinates
+                let orig_x = result.re * center_x + center_x;
+                let orig_y = result.im * center_y + center_y;
+
+                // Handle quadrant wrapping
+                let orig_x_extended = (orig_x + width as f64) % (width as f64 * 2.0);
+                let orig_y_extended = (orig_y + height as f64) % (height as f64 * 2.0);
+
+                let (final_x, final_y) =
+                    if orig_x_extended < width as f64 && orig_y_extended < height as f64 {
+                        (orig_x_extended, orig_y_extended)
+                    } else if orig_x_extended >= width as f64 && orig_y_extended < height as f64 {
+                        (
+                            width as f64 - (orig_x_extended % width as f64),
+                            orig_y_extended,
+                        )
+                    } else if orig_x_extended < width as f64 && orig_y_extended >= height as f64 {
+                        (
+                            orig_x_extended,
+                            height as f64 - (orig_y_extended % height as f64),
+                        )
+                    } else {
+                        (
+                            width as f64 - (orig_x_extended % width as f64),
+                            height as f64 - (orig_y_extended % height as f64),
+                        )
+                    };
+
+                // Clamp coordinates and convert to index
+                let final_x = final_x.clamp(width as f64 - 1.0, 0.0);
+                let final_y = final_y.clamp(height as f64 - 1.0, 0.0);
+
+                // Calculate and store the index for the transformed coordinates
+                let pixel_index = final_y * width + final_x;
+                lookup.push(pixel_index);
+            }
+        }
+
+        HolomorphicLookup {
+            lookup,
+            width,
+            height,
+            source_image: img.clone(),
+        }
+    }
+
+    /// Sets the source image to be used for transformations
+    pub fn set_image(&mut self, img: RgbImage) {
+        self.source_image = img;
+    }
+
+    /// Retrieve the mapped pixel index for a given (x, y) position
+    pub fn get(&self, x: u32, y: u32) -> Option<u32> {
+        if x < self.width && y < self.height {
+            let index = (y * self.width + x) as usize;
+            self.lookup.get(index).cloned()
+        } else {
+            None
+        }
+    }
+
+    /// Applies the lookup to transform the image based on the precomputed positions
+    pub fn apply(&self) -> Option<RgbImage> {
+        // Check that a source image has been set
+        let source_image = &self.source_image;
+
+        let mut transformed_img = RgbImage::new(self.width, self.height);
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if let Some(mapped_index) = self.get(x, y) {
+                    let orig_x = mapped_index % self.width;
+                    let orig_y = mapped_index / self.width;
+                    let pixel = source_image.get_pixel(orig_x, orig_y);
+                    transformed_img.put_pixel(x, y, *pixel);
+                } else {
+                    // Fallback if lookup fails (optional)
+                    transformed_img.put_pixel(x, y, FALLBACK_PIXEL);
+                }
+            }
+        }
+
+        Some(transformed_img)
+    }
 }
