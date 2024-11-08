@@ -1,33 +1,22 @@
+mod cli;
 mod display;
 mod holo;
 mod parsing;
 mod webcam;
 
 use chrono::Local;
-use clap::{arg, command, Parser};
-use holo::HolomorphicLookup;
+use clap::Parser as ClapParser;
+use cli::Cli;
+use display::display_image;
+use holo::{process_frame, HolomorphicLookup};
 use image::RgbImage;
+use minifb::{Key, Window, WindowOptions};
+use opencv::videoio::{
+    VideoCapture, VideoCaptureTrait, CAP_ANY, CAP_PROP_FRAME_HEIGHT, CAP_PROP_FRAME_WIDTH,
+};
 use parsing::parse_expression;
 use std::path::Path;
-
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Cli {
-    /// The filename to process (supports file completion in some shells)
-    #[arg(
-        value_name = "IMAGE_FILENAME",
-        help = "Path to the file to process",
-        value_hint = clap::ValueHint::FilePath
-    )]
-    image: String,
-
-    /// The function string to apply
-    #[arg(
-        value_name = "FUNCTION",
-        help = "Function to apply to the file contents"
-    )]
-    function: String,
-}
+use webcam::capture_frame;
 
 fn save_transformed_image(image_path: &str, function_str: &str, transformed_img: RgbImage) {
     // Extract the file name (without directory) from the input path
@@ -60,30 +49,55 @@ fn save_transformed_image(image_path: &str, function_str: &str, transformed_img:
     println!("Image saved as: {}", output_filename);
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
+    let (width, height) = args.dimensions.unwrap();
 
-    let image_file_path = Path::new(&args.image);
-    let image_file_name = image_file_path.file_name().unwrap();
-    let image_path_string = format!("./images/output/{}", image_file_name.to_string_lossy());
-    let image_path: &str = &image_path_string;
+    let mut cap = VideoCapture::new(0, CAP_ANY)?; // 0 is the default camera
+    cap.set(CAP_PROP_FRAME_WIDTH, width as f64)?;
+    cap.set(CAP_PROP_FRAME_HEIGHT, height as f64)?;
+
+    // Create display window
+    let mut window = Window::new(
+        "Holomorphic Webcam",
+        width as usize,
+        height as usize,
+        WindowOptions::default(),
+    )
+    .expect("Failed to create window");
+
+    // let image_file_path = Path::new(&args.image);
+    // let image_file_name = image_file_path.file_name().unwrap();
+    // let image_path_string = format!("./images/output/{}", image_file_name.to_string_lossy());
+    // let image_path: &str = &image_path_string;
 
     // Join remaining arguments as a single string to support expressions with spaces
     let input = &args.function;
     let (_, holomorphic_fn) = parse_expression(input).expect("Failed to parse function expression");
 
     // Load the image
-    let img = image::open(image_file_path)
-        .expect("Failed to load image")
-        .to_rgb8();
-
-    let (width, height) = img.dimensions();
+    // let img = image::open(image_file_path)
+    //     .expect("Failed to load image")
+    //     .to_rgb8();
+    //
+    // let (width, height) = img.dimensions();
 
     let lookup = HolomorphicLookup::new(holomorphic_fn, width, height);
 
-    if let Some(transformed_img) = lookup.apply(&img) {
-        save_transformed_image(image_path, input, transformed_img);
-    } else {
-        eprint!("transforming image unsuccessful");
+    // if let Some(transformed_img) = lookup.apply(&img) {
+    //     save_transformed_image(image_path, input, transformed_img);
+    // } else {
+    //     eprint!("transforming image unsuccessful");
+    // }
+    while window.is_open() && !window.is_key_down(Key::Escape) {
+        // Capture frame from webcam
+        if let Some(frame) = capture_frame(&mut cap) {
+            // Apply transformation
+            if let Some(transformed_image) = process_frame(&lookup, &frame) {
+                // Display the transformed frame
+                display_image(&mut window, &transformed_image);
+            }
+        }
     }
+    Ok(())
 }
