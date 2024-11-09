@@ -1,127 +1,333 @@
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{char, multispace0},
-    combinator::opt,
-    multi::separated_list0,
-    sequence::{delimited, preceded, tuple},
+    character::complete::{char, digit1, multispace0},
+    combinator::{map, opt, recognize},
+    multi::many0,
+    sequence::{delimited, pair},
     IResult,
 };
-use num_complex::{Complex, ComplexFloat};
+use num_complex::Complex;
 use std::str::FromStr;
 
-type CFunc = Box<dyn Fn(Complex<f64>) -> Complex<f64>>;
+#[derive(Debug, Clone, PartialEq)]
+enum Expr {
+    Number(f64),
+    Variable,
+    UnaryOp {
+        op: char,
+        expr: Box<Expr>,
+    },
+    BinaryOp {
+        left: Box<Expr>,
+        op: char,
+        right: Box<Expr>,
+    },
+    Function {
+        func: String,
+        expr: Box<Expr>,
+    },
+}
 
-/// Parses the variable `z` with optional exponentiation, e.g., "z^2".
-fn parse_variable(input: &str) -> IResult<&str, CFunc> {
-    let (input, _) = tag("z")(input)?;
-    let (input, exponent) = opt(preceded(char('^'), nom::character::complete::digit1))(input)?;
+fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O>
+where
+    F: FnMut(&'a str) -> IResult<&'a str, O>,
+{
+    delimited(multispace0, inner, multispace0)
+}
 
-    // Parse the exponent as an integer, defaulting to 1 if not provided.
-    let exponent: u32 = exponent.map_or(1, |e| e.parse().unwrap_or(1));
+#[allow(dead_code)]
+fn parse(input: &str) -> Expr {
+    let (_, expression) = parse_expression(input).unwrap();
+    expression
+}
+
+fn parse_expression(input: &str) -> IResult<&str, Expr> {
+    let (input, init) = parse_term(input)?;
+    let (input, expr) = many0(pair(ws(alt((char('+'), char('-')))), parse_term))(input)?;
 
     Ok((
         input,
-        Box::new(move |z: Complex<f64>| z.powf(exponent as f64)),
+        expr.into_iter()
+            .fold(init, |acc, (op, term)| Expr::BinaryOp {
+                left: Box::new(acc),
+                op,
+                right: Box::new(term),
+            }),
     ))
 }
 
-/// Parses constants, e.g., "3.0", and returns them as closures.
-fn parse_constant(input: &str) -> IResult<&str, CFunc> {
-    let (input, constant) = nom::combinator::recognize(tuple((
-        opt(char('-')),
-        nom::character::complete::digit1,
-        opt(tuple((char('.'), nom::character::complete::digit1))),
-    )))(input)?;
+fn parse_term(input: &str) -> IResult<&str, Expr> {
+    let (input, init) = parse_factor(input)?;
+    let (input, expr) = many0(pair(ws(alt((char('*'), char('/')))), parse_factor))(input)?;
 
-    let constant = Complex::from_str(constant).unwrap_or(Complex::new(0.0, 0.0));
-    Ok((input, Box::new(move |_| constant)))
+    Ok((
+        input,
+        expr.into_iter()
+            .fold(init, |acc, (op, factor)| Expr::BinaryOp {
+                left: Box::new(acc),
+                op,
+                right: Box::new(factor),
+            }),
+    ))
 }
 
-/// Parses functions like `cos(z)` or `exp(z)`.
-fn parse_function(input: &str) -> IResult<&str, CFunc> {
-    let (input, func_name) = alt((
-        tag("cos"),
-        tag("sin"),
-        tag("exp"),
-        tag("tan"),
-        tag("sec"),
-        tag("csc"),
-        tag("cot"),
-        tag("log"),
-        tag("sqrt"),
-        tag("abs"),
-        tag("arg"),
-        tag("conj"),
-        tag("re"),
-        tag("im"),
+fn parse_factor(input: &str) -> IResult<&str, Expr> {
+    let (input, init) = parse_primary(input)?;
+    let (input, expr) = many0(pair(ws(char('^')), parse_primary))(input)?;
+
+    Ok((
+        input,
+        expr.into_iter()
+            .fold(init, |acc, (_, primary)| Expr::BinaryOp {
+                left: Box::new(acc),
+                op: '^',
+                right: Box::new(primary),
+            }),
+    ))
+}
+
+fn parse_primary(input: &str) -> IResult<&str, Expr> {
+    alt((
+        parse_number,
+        parse_variable,
+        parse_function,
+        delimited(ws(char('(')), parse_expression, ws(char(')'))),
+        parse_unary,
+    ))(input)
+}
+
+fn parse_unary(input: &str) -> IResult<&str, Expr> {
+    let (input, op) = ws(char('-'))(input)?;
+    let (input, expr) = parse_factor(input)?;
+    Ok((
+        input,
+        Expr::UnaryOp {
+            op,
+            expr: Box::new(expr),
+        },
+    ))
+}
+
+fn parse_function(input: &str) -> IResult<&str, Expr> {
+    let (input, func) = ws(alt((tag("sin"), tag("cos"), tag("tan"))))(input)?;
+    let (input, expr) = delimited(ws(char('(')), parse_expression, ws(char(')')))(input)?;
+    Ok((
+        input,
+        Expr::Function {
+            func: func.to_string(),
+            expr: Box::new(expr),
+        },
+    ))
+}
+
+fn parse_variable(input: &str) -> IResult<&str, Expr> {
+    map(ws(tag("z")), |_| Expr::Variable)(input)
+}
+
+fn parse_number(input: &str) -> IResult<&str, Expr> {
+    let (input, num_str) = recognize(pair(
+        opt(ws(char('-'))),
+        alt((recognize(pair(digit1, pair(char('.'), digit1))), digit1)),
     ))(input)?;
-
-    let (input, _) = multispace0(input)?;
-    let (input, inner_func) = delimited(char('('), parse_expression, char(')'))(input)?;
-
-    let function: fn(Complex<f64>) -> Complex<f64> = match func_name {
-        "cos" => Complex::cos,
-        "sin" => Complex::sin,
-        "exp" => Complex::exp,
-        "tan" => Complex::tan,
-        "sec" => |z: Complex<f64>| Complex::new(1.0, 0.0) / Complex::cos(z),
-        "csc" => |z: Complex<f64>| Complex::new(1.0, 0.0) / Complex::sin(z),
-        "cot" => |z: Complex<f64>| Complex::new(1.0, 0.0) / Complex::tan(z),
-        "log" => Complex::ln,
-        "sqrt" => Complex::sqrt,
-        "abs" => |z: Complex<f64>| Complex::new(z.re.abs(), z.im.abs()), // Abs as a complex function
-        "arg" => |z: Complex<f64>| Complex::new(z.arg(), 0.0), // Argument of the complex number
-        "conj" => |z: Complex<f64>| z.conj(),
-        "re" => |z: Complex<f64>| Complex::new(z.re, 0.0),
-        "im" => |z: Complex<f64>| Complex::new(0.0, z.im),
-        _ => unreachable!(),
-    };
-
-    Ok((
-        input,
-        Box::new(move |z: Complex<f64>| function(inner_func(z))),
-    ))
+    let num = f64::from_str(num_str).unwrap();
+    Ok((input, Expr::Number(num)))
 }
 
-/// Parses terms connected by addition, allowing `z + exp(z)`.
-fn parse_term(input: &str) -> IResult<&str, CFunc> {
-    let (input, initial) = parse_factor(input)?;
-    let (input, others) = separated_list0(preceded(multispace0, char('+')), parse_factor)(input)?;
+pub fn parse_and_generate_closure(
+    input: &str,
+) -> Result<Box<dyn Fn(Complex<f64>) -> Complex<f64>>, String> {
+    match parse_expression(input) {
+        Ok((_, expr)) => {
+            let closure = move |z: Complex<f64>| expr.evaluate(z);
+            Ok(Box::new(closure))
+        }
+        Err(err) => Err(format!("Failed to parse input: {:?}", err)),
+    }
+}
 
-    Ok((
-        input,
-        Box::new(move |z: Complex<f64>| {
-            let mut sum = initial(z);
-            for term in &others {
-                sum += term(z);
+impl Expr {
+    fn evaluate(&self, z: Complex<f64>) -> Complex<f64> {
+        match self {
+            Expr::Number(n) => Complex::new(*n, 0.0),
+            Expr::Variable => z,
+            Expr::UnaryOp { op, expr } => {
+                let val = expr.evaluate(z);
+                match *op {
+                    '-' => -val,
+                    _ => val,
+                }
             }
-            sum
-        }),
-    ))
-}
-
-/// Parses multiplication between factors, allowing `2 * z` or `exp(z) * cos(z)`.
-fn parse_factor(input: &str) -> IResult<&str, CFunc> {
-    let (input, initial) = alt((parse_constant, parse_variable, parse_function))(input)?;
-    let (input, others) = separated_list0(
-        preceded(multispace0, char('*')),
-        alt((parse_constant, parse_variable, parse_function)),
-    )(input)?;
-
-    Ok((
-        input,
-        Box::new(move |z: Complex<f64>| {
-            let mut product = initial(z);
-            for factor in &others {
-                product *= factor(z);
+            Expr::BinaryOp { left, op, right } => {
+                let left_val = left.evaluate(z);
+                let right_val = right.evaluate(z);
+                match *op {
+                    '+' => left_val + right_val,
+                    '-' => left_val - right_val,
+                    '*' => left_val * right_val,
+                    '/' => left_val / right_val,
+                    _ => left_val, // Or handle other operations
+                }
             }
-            product
-        }),
-    ))
+            Expr::Function { func, expr } => {
+                let val = expr.evaluate(z);
+                match func.as_str() {
+                    "sin" => val.sin(),
+                    "cos" => val.cos(),
+                    "tan" => val.tan(),
+                    _ => val,
+                }
+            }
+        }
+    }
 }
 
-/// Parses an entire expression like `z + exp(z)`.
-pub fn parse_expression(input: &str) -> IResult<&str, CFunc> {
-    parse_term(input)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn complex_num_tests() -> Vec<Complex<f64>> {
+        vec![
+            Complex::new(0.0, 0.0),
+            Complex::new(1.0, 0.0),
+            Complex::new(0.0, 1.0),
+            Complex::new(1.0, 1.0),
+            Complex::new(-1.0, -1.0),
+            Complex::new(2.0, -2.0),
+            Complex::new(-2.0, 2.0),
+            Complex::new(3.0, 3.0),
+            Complex::new(-3.0, -3.0),
+            Complex::new(1.5, -1.5),
+        ]
+    }
+
+    #[test]
+    fn test_simple_number_expressions() {
+        assert_eq!(parse("5"), Expr::Number(5.0));
+        assert_eq!(parse("-3"), Expr::Number(-3.0));
+        assert_eq!(parse("z"), Expr::Variable);
+    }
+
+    #[test]
+    fn test_simple_arithmetic_expressions() {
+        assert_eq!(
+            parse("5 + 3"),
+            Expr::BinaryOp {
+                left: Box::new(Expr::Number(5.0)),
+                op: '+',
+                right: Box::new(Expr::Number(3.0)),
+            }
+        );
+        assert_eq!(
+            parse("5 - 3"),
+            Expr::BinaryOp {
+                left: Box::new(Expr::Number(5.0)),
+                op: '-',
+                right: Box::new(Expr::Number(3.0)),
+            }
+        );
+        assert_eq!(
+            parse("4 * 2"),
+            Expr::BinaryOp {
+                left: Box::new(Expr::Number(4.0)),
+                op: '*',
+                right: Box::new(Expr::Number(2.0)),
+            }
+        );
+        assert_eq!(
+            parse("8 / 4"),
+            Expr::BinaryOp {
+                left: Box::new(Expr::Number(8.0)),
+                op: '/',
+                right: Box::new(Expr::Number(4.0)),
+            }
+        );
+        assert_eq!(
+            parse("2 ^ 3"),
+            Expr::BinaryOp {
+                left: Box::new(Expr::Number(2.0)),
+                op: '^',
+                right: Box::new(Expr::Number(3.0)),
+            }
+        );
+    }
+
+    #[test]
+    fn test_nested_expressions_without_functions() {
+        assert_eq!(
+            parse("5 + 3 * 2"),
+            Expr::BinaryOp {
+                left: Box::new(Expr::Number(5.0)),
+                op: '+',
+                right: Box::new(Expr::BinaryOp {
+                    left: Box::new(Expr::Number(3.0)),
+                    op: '*',
+                    right: Box::new(Expr::Number(2.0)),
+                }),
+            }
+        );
+        assert_eq!(
+            parse("(5 + 3) * 2"),
+            Expr::BinaryOp {
+                left: Box::new(Expr::BinaryOp {
+                    left: Box::new(Expr::Number(5.0)),
+                    op: '+',
+                    right: Box::new(Expr::Number(3.0)),
+                }),
+                op: '*',
+                right: Box::new(Expr::Number(2.0)),
+            }
+        );
+    }
+
+    #[test]
+    fn test_nested_expressions_with_functions() {
+        assert_eq!(
+            parse("sin(5) + 3"),
+            Expr::BinaryOp {
+                left: Box::new(Expr::Function {
+                    func: "sin".to_string(),
+                    expr: Box::new(Expr::Number(5.0)),
+                }),
+                op: '+',
+                right: Box::new(Expr::Number(3.0)),
+            }
+        );
+        assert_eq!(
+            parse("cos(z ^ 2) + 1"),
+            Expr::BinaryOp {
+                left: Box::new(Expr::Function {
+                    func: "cos".to_string(),
+                    expr: Box::new(Expr::BinaryOp {
+                        left: Box::new(Expr::Variable),
+                        op: '^',
+                        right: Box::new(Expr::Number(2.0)),
+                    }),
+                }),
+                op: '+',
+                right: Box::new(Expr::Number(1.0)),
+            }
+        );
+    }
+
+    #[test]
+    fn test_expression_evaluation() {
+        let complex_numbers = complex_num_tests();
+
+        // Testing the expression "sin(z) + 1" for each complex number
+        let expression = parse("sin(z) + 1");
+        for z in complex_numbers.iter() {
+            let result = evaluate_expr(&expression, *z);
+            let expected = Complex::new(z.im.sin() + 1.0, z.re.cos()); // assuming sin and cos output for example
+            assert_eq!(result, expected, "Failed for z = {:?}", z);
+        }
+
+        // Testing the expression "(z ^ 2) - 3 * z + 1"
+        let expression = parse("(z ^ 2) - 3 * z + 1");
+        for z in complex_numbers.iter() {
+            let result = evaluate_expr(&expression, *z);
+            let expected = z * z - Complex::new(3.0, 0.0) * *z + Complex::new(1.0, 0.0);
+            assert_eq!(result, expected, "Failed for z = {:?}", z);
+        }
+    }
 }

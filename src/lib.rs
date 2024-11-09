@@ -7,7 +7,7 @@ use std::io::Cursor;
 
 use holo::HolomorphicLookup;
 use image::{codecs::png::PngEncoder, ExtendedColorType, ImageEncoder, RgbImage};
-use parsing::parse_expression;
+use parsing::parse_and_generate_closure;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
@@ -18,14 +18,8 @@ pub fn transform_image(
     height: u32,
 ) -> Option<Vec<u8>> {
     // Parse the holomorphic function from the string
-    let parsed_function = match parse_expression(&func_str) {
-        Ok((_, func)) => func,
-        Err(e) => {
-            // Return an empty vector or handle the error (invalid function)
-            eprintln!("Error parsing function: {:?}", e);
-            return None;
-        }
-    };
+    let parsed_function =
+        parse_and_generate_closure(&func_str).expect("Failed to parse expression");
 
     // Convert the input image data into an image object
     let img = RgbImage::from_raw(width, height, image_data).unwrap();
