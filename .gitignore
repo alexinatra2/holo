@@ -3,5 +3,5 @@
 !**/.gitkeep
 /pkg
 /images/output
-
+/node_modules
 
