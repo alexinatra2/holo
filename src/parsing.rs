@@ -7,11 +7,14 @@ use nom::{
     sequence::{delimited, pair},
     IResult,
 };
-use num_complex::Complex;
+use num_complex::{Complex, ComplexFloat};
 use std::str::FromStr;
 
+type FComp = Box<dyn Fn(Complex<f64>) -> Complex<f64>>;
+type ExprResult<T> = Result<T, String>;
+
 #[derive(Debug, Clone, PartialEq)]
-enum Expr {
+pub enum Expr {
     Number(f64),
     Variable,
     UnaryOp {
@@ -29,20 +32,15 @@ enum Expr {
     },
 }
 
-fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O>
+fn ws<'a, F, O>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O>
 where
     F: FnMut(&'a str) -> IResult<&'a str, O>,
+    F: 'a,
 {
     delimited(multispace0, inner, multispace0)
 }
 
-#[allow(dead_code)]
-fn parse(input: &str) -> Expr {
-    let (_, expression) = parse_expression(input).unwrap();
-    expression
-}
-
-fn parse_expression(input: &str) -> IResult<&str, Expr> {
+pub fn parse_expression(input: &str) -> IResult<&str, Expr> {
     let (input, init) = parse_term(input)?;
     let (input, expr) = many0(pair(ws(alt((char('+'), char('-')))), parse_term))(input)?;
 
@@ -110,7 +108,22 @@ fn parse_unary(input: &str) -> IResult<&str, Expr> {
 }
 
 fn parse_function(input: &str) -> IResult<&str, Expr> {
-    let (input, func) = ws(alt((tag("sin"), tag("cos"), tag("tan"))))(input)?;
+    let (input, func) = ws(alt((
+        tag("sin"),
+        tag("cos"),
+        tag("tan"),
+        tag("exp"),
+        tag("log"),
+        tag("sqrt"),
+        tag("sinh"),
+        tag("cosh"),
+        tag("tanh"),
+        tag("asin"),
+        tag("acos"),
+        tag("atan"),
+        tag("abs"),
+        tag("conj"),
+    )))(input)?;
     let (input, expr) = delimited(ws(char('(')), parse_expression, ws(char(')')))(input)?;
     Ok((
         input,
@@ -134,20 +147,20 @@ fn parse_number(input: &str) -> IResult<&str, Expr> {
     Ok((input, Expr::Number(num)))
 }
 
-pub fn parse_and_generate_closure(
-    input: &str,
-) -> Result<Box<dyn Fn(Complex<f64>) -> Complex<f64>>, String> {
-    match parse_expression(input) {
-        Ok((_, expr)) => {
-            let closure = move |z: Complex<f64>| expr.evaluate(z);
-            Ok(Box::new(closure))
-        }
-        Err(err) => Err(format!("Failed to parse input: {:?}", err)),
-    }
-}
-
 impl Expr {
-    fn evaluate(&self, z: Complex<f64>) -> Complex<f64> {
+    pub fn parse(input: &str) -> ExprResult<Self> {
+        if let Ok((_, expr)) = parse_expression(input) {
+            Ok(expr)
+        } else {
+            Err(format!("Failed to parse input: {:?}", input))
+        }
+    }
+
+    pub fn get_closure(self) -> FComp {
+        Box::new(move |z: Complex<f64>| self.evaluate(z))
+    }
+
+    pub fn evaluate(&self, z: Complex<f64>) -> Complex<f64> {
         match self {
             Expr::Number(n) => Complex::new(*n, 0.0),
             Expr::Variable => z,
@@ -166,7 +179,8 @@ impl Expr {
                     '-' => left_val - right_val,
                     '*' => left_val * right_val,
                     '/' => left_val / right_val,
-                    _ => left_val, // Or handle other operations
+                    '^' => left_val.powf(right_val.re), // assuming real exponentiation
+                    _ => left_val,                      // Or handle other operations
                 }
             }
             Expr::Function { func, expr } => {
@@ -175,7 +189,47 @@ impl Expr {
                     "sin" => val.sin(),
                     "cos" => val.cos(),
                     "tan" => val.tan(),
-                    _ => val,
+                    "exp" => val.exp(),
+                    "log" => val.ln(),
+                    "sqrt" => val.sqrt(),
+                    "sinh" => val.sinh(),
+                    "cosh" => val.cosh(),
+                    "tanh" => val.tanh(),
+                    "asin" => val.asin(),
+                    "acos" => val.acos(),
+                    "atan" => val.atan(),
+                    "abs" => Complex::new(val.abs(), 0.0),
+                    _ => val, // Default to the expression itself
+                }
+            }
+        }
+    }
+
+    pub fn to_wgsl(&self) -> String {
+        match self {
+            Expr::Number(n) => format!("{:.1}", n), // Floating-point formatting
+            Expr::Variable => "coord".to_string(), // Assuming `coord` is a vec2<f32> passed in the shader
+            Expr::UnaryOp { op, expr } => format!("({}{})", op, expr.to_wgsl()),
+            Expr::BinaryOp { left, op, right } => {
+                format!("({} {} {})", left.to_wgsl(), op, right.to_wgsl())
+            }
+            Expr::Function { func, expr } => {
+                let arg = expr.to_wgsl(); // Recursively get the argument's WGSL representation
+                match func.as_str() {
+                    "sin" => format!("sin({})", arg),
+                    "cos" => format!("cos({})", arg),
+                    "tan" => format!("tan({})", arg),
+                    "exp" => format!("exp({})", arg),
+                    "log" => format!("log({})", arg),
+                    "sqrt" => format!("sqrt({})", arg),
+                    "sinh" => format!("sinh({})", arg),
+                    "cosh" => format!("cosh({})", arg),
+                    "tanh" => format!("tanh({})", arg),
+                    "asin" => format!("asin({})", arg),
+                    "acos" => format!("acos({})", arg),
+                    "atan" => format!("atan({})", arg),
+                    "abs" => format!("length({})", arg), // Use `length` for complex modulus in WGSL
+                    _ => panic!("Unsupported function: {}", func), // Handle unsupported functions
                 }
             }
         }
@@ -203,15 +257,15 @@ mod tests {
 
     #[test]
     fn test_simple_number_expressions() {
-        assert_eq!(parse("5"), Expr::Number(5.0));
-        assert_eq!(parse("-3"), Expr::Number(-3.0));
-        assert_eq!(parse("z"), Expr::Variable);
+        assert_eq!(Expr::parse("5").unwrap(), Expr::Number(5.0));
+        assert_eq!(Expr::parse("-3").unwrap(), Expr::Number(-3.0));
+        assert_eq!(Expr::parse("z").unwrap(), Expr::Variable);
     }
 
     #[test]
     fn test_simple_arithmetic_expressions() {
         assert_eq!(
-            parse("5 + 3"),
+            Expr::parse("5 + 3").unwrap(),
             Expr::BinaryOp {
                 left: Box::new(Expr::Number(5.0)),
                 op: '+',
@@ -219,7 +273,7 @@ mod tests {
             }
         );
         assert_eq!(
-            parse("5 - 3"),
+            Expr::parse("5 - 3").unwrap(),
             Expr::BinaryOp {
                 left: Box::new(Expr::Number(5.0)),
                 op: '-',
@@ -227,7 +281,7 @@ mod tests {
             }
         );
         assert_eq!(
-            parse("4 * 2"),
+            Expr::parse("4 * 2").unwrap(),
             Expr::BinaryOp {
                 left: Box::new(Expr::Number(4.0)),
                 op: '*',
@@ -235,7 +289,7 @@ mod tests {
             }
         );
         assert_eq!(
-            parse("8 / 4"),
+            Expr::parse("8 / 4").unwrap(),
             Expr::BinaryOp {
                 left: Box::new(Expr::Number(8.0)),
                 op: '/',
@@ -243,7 +297,7 @@ mod tests {
             }
         );
         assert_eq!(
-            parse("2 ^ 3"),
+            Expr::parse("2 ^ 3").unwrap(),
             Expr::BinaryOp {
                 left: Box::new(Expr::Number(2.0)),
                 op: '^',
@@ -255,7 +309,7 @@ mod tests {
     #[test]
     fn test_nested_expressions_without_functions() {
         assert_eq!(
-            parse("5 + 3 * 2"),
+            Expr::parse("5 + 3 * 2").unwrap(),
             Expr::BinaryOp {
                 left: Box::new(Expr::Number(5.0)),
                 op: '+',
@@ -267,7 +321,7 @@ mod tests {
             }
         );
         assert_eq!(
-            parse("(5 + 3) * 2"),
+            Expr::parse("(5 + 3) * 2").unwrap(),
             Expr::BinaryOp {
                 left: Box::new(Expr::BinaryOp {
                     left: Box::new(Expr::Number(5.0)),
@@ -283,7 +337,7 @@ mod tests {
     #[test]
     fn test_nested_expressions_with_functions() {
         assert_eq!(
-            parse("sin(5) + 3"),
+            Expr::parse("sin(5) + 3").unwrap(),
             Expr::BinaryOp {
                 left: Box::new(Expr::Function {
                     func: "sin".to_string(),
@@ -294,7 +348,7 @@ mod tests {
             }
         );
         assert_eq!(
-            parse("cos(z ^ 2) + 1"),
+            Expr::parse("cos(z ^ 2) + 1").unwrap(),
             Expr::BinaryOp {
                 left: Box::new(Expr::Function {
                     func: "cos".to_string(),
@@ -311,23 +365,24 @@ mod tests {
     }
 
     #[test]
-    fn test_expression_evaluation() {
+    fn test_expression_evaluation() -> Result<(), Box<dyn std::error::Error>> {
         let complex_numbers = complex_num_tests();
 
         // Testing the expression "sin(z) + 1" for each complex number
-        let expression = parse("sin(z) + 1");
-        for z in complex_numbers.iter() {
-            let result = evaluate_expr(&expression, *z);
+        let expression = Expr::parse("sin(z) + 1").unwrap();
+        for &z in complex_numbers.iter() {
+            let result = expression.evaluate(z);
             let expected = Complex::new(z.im.sin() + 1.0, z.re.cos()); // assuming sin and cos output for example
             assert_eq!(result, expected, "Failed for z = {:?}", z);
         }
 
         // Testing the expression "(z ^ 2) - 3 * z + 1"
-        let expression = parse("(z ^ 2) - 3 * z + 1");
-        for z in complex_numbers.iter() {
-            let result = evaluate_expr(&expression, *z);
-            let expected = z * z - Complex::new(3.0, 0.0) * *z + Complex::new(1.0, 0.0);
+        let expression = Expr::parse("(z ^ 2) - 3 * z + 1").unwrap();
+        for &z in complex_numbers.iter() {
+            let result = expression.evaluate(z);
+            let expected = z * z - Complex::new(3.0, 0.0) * z + Complex::new(1.0, 0.0);
             assert_eq!(result, expected, "Failed for z = {:?}", z);
         }
+        Ok(())
     }
 }

@@ -14,7 +14,7 @@ use minifb::{Key, Window, WindowOptions};
 use opencv::videoio::{
     VideoCapture, VideoCaptureTrait, CAP_ANY, CAP_PROP_FRAME_HEIGHT, CAP_PROP_FRAME_WIDTH,
 };
-use parsing::parse_and_generate_closure;
+use parsing::Expr;
 use std::path::Path;
 use webcam::capture_frame;
 
@@ -53,7 +53,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
 
     let input = &args.function;
-    let holomorphic_fn = parse_and_generate_closure(input)?;
+    let expression = Expr::parse(input)?;
+    let holomorphic_fn = expression.get_closure();
 
     match args.image {
         Some(file_path) => {
