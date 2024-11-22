@@ -1,6 +1,18 @@
 use clap::{command, Parser, ValueEnum};
 
-/// Custom parser function to parse dimensions in the format `width,height`.
+/// Benutzerdefinierte Parser-Funktion, um Dimensionen im Format `width,height` zu parsen.
+///
+/// # Parameter
+/// - `s` (`&str`): Die Eingabe im Format `width,height`.
+///
+/// # Rückgabewert
+/// Gibt entweder die geparsten Dimensionen als Tupel `(u32, u32)` zurück oder
+/// eine Fehlermeldung (`String`), falls das Format ungültig ist.
+///
+/// # Fehler
+/// - Gibt einen Fehler zurück, wenn die Eingabe nicht genau zwei Werte enthält,
+///   getrennt durch ein Komma.
+/// - Gibt einen Fehler zurück, wenn `width` oder `height` keine gültigen Ganzzahlen sind.
 fn parse_dimensions(s: &str) -> Result<(u32, u32), String> {
     let parts: Vec<&str> = s.split(',').collect();
     if parts.len() != 2 {
@@ -11,6 +23,10 @@ fn parse_dimensions(s: &str) -> Result<(u32, u32), String> {
     Ok((width, height))
 }
 
+/// Aufzählung gängiger Bildschirmauflösungen.
+///
+/// Diese Enum definiert verschiedene vordefinierte Bildschirmauflösungen und
+/// kann in Verbindung mit der `--resolution`-Option verwendet werden.
 #[derive(ValueEnum, Clone, Debug)]
 pub enum Resolution {
     Hd,      // 1280x720
@@ -32,6 +48,10 @@ pub enum Resolution {
 }
 
 impl Resolution {
+    /// Gibt die Breite und Höhe der Auflösung als Tupel `(u32, u32)` zurück.
+    ///
+    /// # Rückgabewert
+    /// Ein Tupel, das die Dimensionen der jeweiligen Auflösung beschreibt.
     pub fn to_dimensions(&self) -> (u32, u32) {
         match self {
             Resolution::Hd => (1280, 720),
@@ -54,6 +74,16 @@ impl Resolution {
     }
 }
 
+/// Definiert die Kommandozeilenargumente für das Programm.
+///
+/// Diese Struktur verwendet die `clap`-Bibliothek, um Argumente aus der Kommandozeile zu parsen.
+/// Die Optionen ermöglichen die Angabe von Transformationen, Bilddateien und Auflösungen.
+///
+/// # Felder
+/// - `function` (`String`): Die mathematische Funktion, die auf die Bilddaten angewendet wird.
+/// - `image` (`Option<String>`): Der Pfad zur Bilddatei, die verarbeitet werden soll. Wenn keine Bilddatei angegeben wird, wird die Webcam verwendet.
+/// - `resolution` (`Option<Resolution>`): Eine vordefinierte Auflösung, die benutzerdefinierte Dimensionen überschreibt.
+/// - `dimensions` (`Option<(u32, u32)>`): Benutzerdefinierte Dimensionen im Format `width,height`.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {

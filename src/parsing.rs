@@ -10,9 +10,20 @@ use nom::{
 use num_complex::{Complex, ComplexFloat};
 use std::str::FromStr;
 
+/// Typalias für eine Funktionsclosure, die einen komplexen Wert transformiert.
 type FComp = Box<dyn Fn(Complex<f64>) -> Complex<f64>>;
+
+/// Ergebnis-Typ für `Expr::parse`, um zwischen Erfolg und Fehlern zu unterscheiden.
 type ExprResult<T> = Result<T, String>;
 
+/// Enum, das mathematische Ausdrücke beschreibt.
+///
+/// # Varianten
+/// - `Number(f64)`: Eine Zahl.
+/// - `Variable`: Die Variable `z`, die typischerweise für komplexe Werte steht.
+/// - `UnaryOp { op, expr }`: Ein unärer Operator, z. B. `-z`.
+/// - `BinaryOp { left, op, right }`: Ein binärer Operator, z. B. `z + 1`.
+/// - `Function { func, expr }`: Eine mathematische Funktion, z. B. `sin(z)`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Number(f64),
@@ -32,6 +43,13 @@ pub enum Expr {
     },
 }
 
+/// Hilfsfunktion, um einen Parser mit optionalem Leerraum zu verwenden.
+///
+/// # Parameter
+/// - `inner`: Ein Parser, der den eigentlichen Inhalt verarbeitet.
+///
+/// # Rückgabewert
+/// Gibt einen Parser zurück, der Leerraum um das Eingabeelement ignoriert.
 fn ws<'a, F, O>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O>
 where
     F: FnMut(&'a str) -> IResult<&'a str, O>,
@@ -40,6 +58,15 @@ where
     delimited(multispace0, inner, multispace0)
 }
 
+/// Parst einen mathematischen Ausdruck.
+///
+/// Unterstützt Addition und Subtraktion sowie verschachtelte Operationen.
+///
+/// # Parameter
+/// - `input`: Der Eingabestring.
+///
+/// # Rückgabewert
+/// Gibt das verbleibende Eingabestring-Segment und den geparsten `Expr` zurück.
 pub fn parse_expression(input: &str) -> IResult<&str, Expr> {
     let (input, init) = parse_term(input)?;
     let (input, expr) = many0(pair(ws(alt((char('+'), char('-')))), parse_term))(input)?;
@@ -55,6 +82,7 @@ pub fn parse_expression(input: &str) -> IResult<&str, Expr> {
     ))
 }
 
+/// Parst einen Term (Multiplikation und Division).
 fn parse_term(input: &str) -> IResult<&str, Expr> {
     let (input, init) = parse_factor(input)?;
     let (input, expr) = many0(pair(ws(alt((char('*'), char('/')))), parse_factor))(input)?;
@@ -70,6 +98,7 @@ fn parse_term(input: &str) -> IResult<&str, Expr> {
     ))
 }
 
+/// Parst einen Faktor (Potenzierung und Klammern).
 fn parse_factor(input: &str) -> IResult<&str, Expr> {
     let (input, init) = parse_primary(input)?;
     let (input, expr) = many0(pair(ws(char('^')), parse_primary))(input)?;
@@ -85,6 +114,7 @@ fn parse_factor(input: &str) -> IResult<&str, Expr> {
     ))
 }
 
+/// Parst einen Primärausdruck (Zahlen, Variablen, Funktionen, Klammern, unäre Operatoren).
 fn parse_primary(input: &str) -> IResult<&str, Expr> {
     alt((
         parse_number,
@@ -95,6 +125,7 @@ fn parse_primary(input: &str) -> IResult<&str, Expr> {
     ))(input)
 }
 
+/// Parst unäre Operationen, z. B. `-z`.
 fn parse_unary(input: &str) -> IResult<&str, Expr> {
     let (input, op) = ws(char('-'))(input)?;
     let (input, expr) = parse_factor(input)?;
@@ -107,6 +138,7 @@ fn parse_unary(input: &str) -> IResult<&str, Expr> {
     ))
 }
 
+/// Parst mathematische Funktionen, z. B. `sin(z)`.
 fn parse_function(input: &str) -> IResult<&str, Expr> {
     let (input, func) = ws(alt((
         tag("sin"),
@@ -134,10 +166,12 @@ fn parse_function(input: &str) -> IResult<&str, Expr> {
     ))
 }
 
+/// Parst die Variable `z`.
 fn parse_variable(input: &str) -> IResult<&str, Expr> {
     map(ws(tag("z")), |_| Expr::Variable)(input)
 }
 
+/// Parst eine Zahl (z. B. `3.14`, `-2`).
 fn parse_number(input: &str) -> IResult<&str, Expr> {
     let (input, num_str) = recognize(pair(
         opt(ws(char('-'))),
@@ -148,6 +182,7 @@ fn parse_number(input: &str) -> IResult<&str, Expr> {
 }
 
 impl Expr {
+    /// Parst einen String in einen mathematischen Ausdruck (`Expr`).
     pub fn parse(input: &str) -> ExprResult<Self> {
         if let Ok((_, expr)) = parse_expression(input) {
             Ok(expr)
@@ -156,10 +191,12 @@ impl Expr {
         }
     }
 
+    /// Generiert eine Closure zur Evaluierung des Ausdrucks.
     pub fn get_closure(self) -> FComp {
         Box::new(move |z: Complex<f64>| self.evaluate(z))
     }
 
+    /// Evaluierung des Ausdrucks für eine gegebene komplexe Zahl `z`.
     pub fn evaluate(&self, z: Complex<f64>) -> Complex<f64> {
         match self {
             Expr::Number(n) => Complex::new(*n, 0.0),
