@@ -1,4 +1,4 @@
-# Holomorphic-Tinkering
+# **Holomorphic-Tinkering** (Deutsch)
 
 Dieses Projekt kombiniert Rust und WebAssembly, um Bildverarbeitungsalgorithmen im Browser auszuführen. Es verwendet eine Rust-Bibliothek, die in WebAssembly kompiliert wird, um Bilder zu transformieren und zu manipulieren. Die Frontend-Anwendung ist in React geschrieben und ermöglicht es Benutzern, Bilder hochzuladen und zu transformieren oder die Transformationen in Echtzeit zu sehen via Webcam.
 
@@ -6,63 +6,54 @@ Das Projekt nutzt holomorphe Funktionen, um komplexe Bildtransformationen durchz
 
 ---
 
-This project combines Rust and WebAssembly to execute image processing algorithms in the browser. It uses a Rust library compiled to WebAssembly to transform and manipulate images. The frontend application is written in React and allows users to upload images and to transform or see the transformations in real-time via webdam.
+## **Voraussetzungen**
 
-The project utilizes holomorphic functions to perform complex image transformations. Holomorphic functions are significant in complex analysis and allow for smooth and continuous transformations on images, resulting in impressive visual effects.
-
----
-
-## Prerequisites
-
-### General Requirements
-- **Rust**: You will need to have Rust installed on your machine to run this project.
-    - Install Rust via the official [installation guide](https://www.rust-lang.org/tools/install).
-    - For Linux:
+### Allgemeine Anforderungen
+- **Rust**: Rust muss installiert sein, um dieses Projekt auszuführen.
+    - Rust über den offiziellen [Installationsleitfaden](https://www.rust-lang.org/tools/install) installieren.
+    - Für Linux:
       ```bash
       sudo apt install cargo
       ```
-    - For Windows:  
-      Download the Rust installer from the [official site](https://www.rust-lang.org/tools/install) and run it. During the installation, ensure the necessary tools (e.g., `cargo`, `rustc`) are added to your PATH.
+    - Für Windows:  
+      Den Rust-Installer von der [offiziellen Website](https://www.rust-lang.org/tools/install) herunterladen und ausführen. Stellen Sie sicher, dass notwendige Tools (`cargo`, `rustc`) zur PATH-Umgebung hinzugefügt werden.
 
-
-- **Node.js**: To run the frontend application, you need a Node.js runtime installed. The easiest way to manage Node.js versions is by using **nvm**:
-    - For Linux/Mac:  
-      Follow the [nvm installation guide](https://github.com/nvm-sh/nvm).
-    - For Windows:  
-      Install [nvm-windows](https://github.com/coreybutler/nvm-windows/releases) and add it to your PATH. Then, install Node.js:
+- **Node.js**: Zum Ausführen der Frontend-Anwendung wird eine Node.js-Laufzeitumgebung benötigt. Die einfachste Möglichkeit, Node.js-Versionen zu verwalten, ist die Verwendung von **nvm**:
+    - Für Linux/Mac:  
+      Dem [nvm-Installationsleitfaden](https://github.com/nvm-sh/nvm) folgen.
+    - Für Windows:  
+      [nvm-windows](https://github.com/coreybutler/nvm-windows/releases) installieren und zur PATH-Umgebung hinzufügen. Anschließend Node.js installieren:
       ```bash
       nvm install Iron
       nvm use Iron
       ```
 
-- **pnpm** (optional): For a faster Node.js package manager, install **pnpm**:
-    - Universal installation:
+- **pnpm** (optional): Ein schnellerer Node.js-Paketmanager. Installation von **pnpm**:
+    - Universelle Installation:
       ```bash
       npm install --global pnpm
       ```
-    - Install dependencies and run the frontend:
-        1. Navigate to the project root directory.
-        2. Run the following command:
-      ```bash
-      pnpm -F react-frontend install
-      pnpm run frontend
-      ```
-      3. Troubleshooting
-      ```bash
-         cargo install wasm-pack
-         wasm-pack build --target web --out-dir pkg
+    - Abhängigkeiten installieren und das Frontend ausführen:
+        1. Navigieren Sie zum Projektverzeichnis.
+        2. Führen Sie folgende Befehle aus:
+        ```bash
+        pnpm -F react-frontend install
+        pnpm run frontend
+        ```
+        3. Fehlerbehebung:
+        ```bash
+        cargo install wasm-pack
+        wasm-pack build --target web --out-dir pkg
+        ```
 
-      ```
-
-- **OpenCV**: Required for webcam functionalities.
-    - For Linux:
+- **OpenCV**: Erforderlich für Webcam-Funktionalitäten.
+    - Für Linux:
       ```bash
       sudo apt update
       sudo apt install libopencv-dev pkg-config
       ```
-      On Linux, if this fails due to missing packages, consider installing OpenCV from the source:
+      Falls Pakete fehlen, kann OpenCV aus dem Quellcode installiert werden:
       ```bash
-      sudo apt update
       sudo apt install build-essential cmake git pkg-config libgtk-3-dev libavcodec-dev \
       libavformat-dev libswscale-dev libv4l-dev libxvidcore-dev libx264-dev libjpeg-dev \
       libpng-dev libtiff-dev gfortran openexr libatlas-base-dev python3-dev python3-numpy \
@@ -76,52 +67,161 @@ The project utilizes holomorphic functions to perform complex image transformati
       sudo make install
       sudo ldconfig
       ```
-    - For Windows:
-        1. Download and install OpenCV from the [official website](https://opencv.org/releases/).
-        2. Set the `OpenCV_DIR` environment variable to point to your OpenCV installation folder (e.g., `C:\opencv\build`).
+    - Für Windows:
+        1. OpenCV von der [offiziellen Website](https://opencv.org/releases/) herunterladen und installieren.
+        2. Die Umgebungsvariable `OpenCV_DIR` auf den OpenCV-Installationsordner setzen (z. B. `C:\opencv\build`).
 
 ---
-## How to Run
 
-### 1. Clone the repository
+## **Ausführen des Programms**
+
+### 1. Repository klonen
+```bash
+git clone https://github.com/alexinatra2/holomorphic-tinkering.git
+cd holomorphic-tinkering
+```
+
+### 2. Programm ausführen
+```bash
+cargo run "[FUNCTION]"
+```
+
+- **Webcam**: Um die Webcam und Echtzeittransformation zu nutzen:
+  ```bash
+  cargo run "[FUNCTION]"
+  ```
+- **Bildtransformation**: Um ein Bild zu transformieren:
+  ```bash
+  cargo run "[FUNCTION]" -i [Pfad]
+  ```
+  Das transformierte Bild wird im Verzeichnis `./images/output/` gespeichert. Der Dateiname setzt sich aus dem Namen der Eingabedatei und einem Zeitstempel zusammen.
+
+---
+
+## **Beispiele**
+
+### Webcam Transformation
+1. Polynomische Funktion:
    ```bash
-   git clone https://github.com/alexinatra2/holomorphic-tinkering.git
-   cd holomorphic-tinkering
+   cargo run "z + 2z^2 + 3z^3"
+   ```
+2. Gebrochenrationale Funktion:
+   ```bash
+   cargo run "(z + 2z^2 + 3) / (1 + z^3)"
    ```
 
-### 2. Run the Program
-  ```bash
-  cargo run
-  ```
+### Bild Transformation
+1. Benutzerdefinierte Dimensionen:
+   ```bash
+   cargo run "z + 2z^2" -i ./images/input/test.jpg -d 800,600
+   ```
+2. Vordefinierte Auflösung:
+   ```bash
+   cargo run "z^2 / (1 + z)" -i ./images/input/test.jpg -r hd
+   ```
 
-### 3. Enable More Options
-Get additional information about available options:
+---
+
+## **Verfügbare Optionen**
+Mit `--help` weitere Optionen anzeigen:
 ```bash
-cargo run --help 
-# or
-cargo run -h
+cargo run -- --help
+```
+
+### Optionen
+```
+Usage: holo [OPTIONS] <FUNCTION>
+
+Arguments:
+  <FUNCTION>  Function to apply to the file contents
+
+Options:
+  -i, --image <IMAGE_FILENAME>   Path to the file to process
+  -r, --resolution <RESOLUTION>  Resolution preset, overriding custom dimensions if specified [possible values: hd, full-hd, uhd, qhd, wqhd, four-k, eight-k, sd, retina, svga, xga, wxga, hd-ready, wvga, qvga, cga]
+  -d, --dimensions <DIMENSIONS>  Custom dimensions in the format width,height
+  -h, --help                     Print help
+  -V, --version                  Print version
 ```
 
 ---
 
-## How to Install
+# **Holomorphic-Tinkering** (English)
 
-To install this project as a binary called `holo`, follow these steps:
+This project combines Rust and WebAssembly to execute image processing algorithms in the browser. It uses a Rust library compiled to WebAssembly to transform and manipulate images. The frontend application is written in React and allows users to upload images and to transform or see the transformations in real-time via webcam.
 
-1. Navigate to the project root directory.
-2. Run the following command:
-   ```bash
-   cargo install --path .
-   ```
-
-This will compile and install the binary to your system.
+The project utilizes holomorphic functions to perform complex image transformations. Holomorphic functions are significant in complex analysis and allow for smooth and continuous transformations on images, resulting in impressive visual effects.
 
 ---
 
-### Troubleshooting on Windows
+## **Prerequisites**
+... *(The English prerequisites section is the same as above in German)* ...
 
-- **Missing OpenCV libraries**: Ensure `OpenCV_DIR` is set correctly and that `pkg-config` is installed on your system.  
-  Consider using the [vcpkg](https://github.com/microsoft/vcpkg) package manager to simplify OpenCV setup.
+---
 
-- **Path issues**: Ensure all necessary tools (e.g., `cargo`, `rustc`, `llvm-config`) are added to your system's PATH environment variable.
+## **How to Run**
 
+### 1. Clone the repository
+```bash
+git clone https://github.com/alexinatra2/holomorphic-tinkering.git
+cd holomorphic-tinkering
+```
+
+### 2. Run the program
+```bash
+cargo run "[FUNCTION]"
+```
+
+- **Webcam**:
+  ```bash
+  cargo run "[FUNCTION]"
+  ```
+- **Image Transformation**:
+  ```bash
+  cargo run "[FUNCTION]" -i [path]
+  ```
+  The transformed image is saved in the directory `./images/output/`.
+
+---
+
+## **Examples**
+### Webcam Transformation
+1. Polynomial function:
+   ```bash
+   cargo run "z + 2z^2 + 3z^3"
+   ```
+2. Rational function:
+   ```bash
+   cargo run "(z + 2z^2 + 3) / (1 + z^3)"
+   ```
+
+### Image Transformation
+1. Custom dimensions:
+   ```bash
+   cargo run "z + 2z^2" -i ./images/input/test.jpg -d 800,600
+   ```
+2. Predefined resolution:
+   ```bash
+   cargo run "z^2 / (1 + z)" -i ./images/input/test.jpg -r hd
+   ```
+
+---
+
+## **Options**
+Use `--help` for more information:
+```bash
+cargo run -- --help
+```
+
+### Options
+```
+Usage: holo [OPTIONS] <FUNCTION>
+
+Arguments:
+  <FUNCTION>  Function to apply to the file contents
+
+Options:
+  -i, --image <IMAGE_FILENAME>   Path to the file to process
+  -r, --resolution <RESOLUTION>  Resolution preset, overriding custom dimensions if specified [possible values: hd, full-hd, uhd, qhd, wqhd, four-k, eight-k, sd, retina, svga, xga, wxga, hd-ready, wvga, qvga, cga]
+  -d, --dimensions <DIMENSIONS>  Custom dimensions in the format width,height
+  -h, --help                     Print help
+  -V, --version                  Print version
