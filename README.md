@@ -103,17 +103,17 @@ cargo run "[FUNCTION]"
 ### Webcam Transformation
 1. Polynomische Funktion:
    ```bash
-   cargo run "z + 2z^2 + 3z^3"
+   cargo run "z + 2*z^2 + 3*z^3"
    ```
 2. Gebrochenrationale Funktion:
    ```bash
-   cargo run "(z + 2z^2 + 3) / (1 + z^3)"
+   cargo run "(z + 2*z^2 + 3) / (1 + z^3)"
    ```
 
 ### Bild Transformation
 1. Benutzerdefinierte Dimensionen:
    ```bash
-   cargo run "z + 2z^2" -i ./images/input/test.jpg -d 800,600
+   cargo run "z + 2*z^2" -i ./images/input/test.jpg -d 800,600
    ```
 2. Vordefinierte Auflösung:
    ```bash
@@ -187,17 +187,17 @@ cargo run "[FUNCTION]"
 ### Webcam Transformation
 1. Polynomial function:
    ```bash
-   cargo run "z + 2z^2 + 3z^3"
+   cargo run "z + 2*z^2 + 3*z^3"
    ```
 2. Rational function:
    ```bash
-   cargo run "(z + 2z^2 + 3) / (1 + z^3)"
+   cargo run "(z + 2*z^2 + 3) / (1 + z^3)"
    ```
 
 ### Image Transformation
 1. Custom dimensions:
    ```bash
-   cargo run "z + 2z^2" -i ./images/input/test.jpg -d 800,600
+   cargo run "z + 2*z^2" -i ./images/input/test.jpg -d 800,600
    ```
 2. Predefined resolution:
    ```bash
