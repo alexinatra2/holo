@@ -1,6 +1,6 @@
 # **Holomorphic-Tinkering** (Deutsch)
 
-Dieses Projekt kombiniert Rust und WebAssembly, um Bildverarbeitungsalgorithmen im Browser auszuführen. Es verwendet eine Rust-Bibliothek, die in WebAssembly kompiliert wird, um Bilder zu transformieren und zu manipulieren. Die Frontend-Anwendung ist in React geschrieben und ermöglicht es Benutzern, Bilder hochzuladen und zu transformieren oder die Transformationen in Echtzeit zu sehen via Webcam.
+Dieses Projekt kombiniert Rust und WebAssembly, um Bildverarbeitungsalgorithmen im Browser auszuführen. Es verwendet eine Rust-Bibliothek, die in WebAssembly kompiliert wird, um Bilder zu transformieren und zu manipulieren. Die Frontend-Anwendung (HINWEIS: nicht komplett implementiert, erfordert Nachbesserung) ist in React geschrieben und ermöglicht es Benutzern, Bilder hochzuladen und zu transformieren oder die Transformationen in Echtzeit zu sehen via Webcam.
 
 Das Projekt nutzt holomorphe Funktionen, um komplexe Bildtransformationen durchzuführen. Holomorphe Funktionen sind in der komplexen Analysis von Bedeutung und ermöglichen es, glatte und kontinuierliche Transformationen auf Bildern anzuwenden, was zu beeindruckenden visuellen Effekten führt.
 
@@ -33,7 +33,7 @@ Das Projekt nutzt holomorphe Funktionen, um komplexe Bildtransformationen durchz
       ```bash
       npm install --global pnpm
       ```
-    - Abhängigkeiten installieren und das Frontend ausführen:
+    - Abhängigkeiten installieren und das Frontend ausführen (HINWEIS: nicht komplett implementiert, erfordert Nachbesserung, bis dahin diese folgenden (1. bis 3.) Schritte überspringen:
         1. Navigieren Sie zum Projektverzeichnis.
         2. Führen Sie folgende Befehle aus:
         ```bash
@@ -52,7 +52,7 @@ Das Projekt nutzt holomorphe Funktionen, um komplexe Bildtransformationen durchz
       sudo apt update
       sudo apt install libopencv-dev pkg-config
       ```
-      Falls Pakete fehlen, kann OpenCV aus dem Quellcode installiert werden:
+      (NUR) Falls das zu Problemen führt (z.B.Pakete fehlen), kann OpenCV aus dem Quellcode installiert werden:
       ```bash
       sudo apt install build-essential cmake git pkg-config libgtk-3-dev libavcodec-dev \
       libavformat-dev libswscale-dev libv4l-dev libxvidcore-dev libx264-dev libjpeg-dev \
@@ -78,7 +78,7 @@ Das Projekt nutzt holomorphe Funktionen, um komplexe Bildtransformationen durchz
 ### 1. Repository klonen
 ```bash
 git clone https://github.com/alexinatra2/holo.git
-cd holomorphic-tinkering
+cd holo
 ```
 
 ### 2. Programm ausführen
@@ -90,7 +90,7 @@ cargo run "[FUNCTION]"
   ```bash
   cargo run "[FUNCTION]"
   ```
-- **Bildtransformation**: Um ein Bild zu transformieren:
+- **Bildtransformation**: Um ein Bild zu transformieren (Pfad relativ vom Projekt-root siehe Beispiele):
   ```bash
   cargo run "[FUNCTION]" -i [Pfad]
   ```
@@ -147,7 +147,7 @@ Options:
 
 # **Holomorphic-Tinkering** (English)
 
-This project combines Rust and WebAssembly to execute image processing algorithms in the browser. It uses a Rust library compiled to WebAssembly to transform and manipulate images. The frontend application is written in React and allows users to upload images and to transform or see the transformations in real-time via webcam.
+This project combines Rust and WebAssembly to execute image processing algorithms in the browser. It uses a Rust library compiled to WebAssembly to transform and manipulate images. The frontend application ((NOTE: not fully implemented, requires improvement)) is written in React and allows users to upload images and to transform or see the transformations in real-time via webcam.
 
 The project utilizes holomorphic functions to perform complex image transformations. Holomorphic functions are significant in complex analysis and allow for smooth and continuous transformations on images, resulting in impressive visual effects.
 
@@ -163,7 +163,7 @@ The project utilizes holomorphic functions to perform complex image transformati
 ### 1. Clone the repository
 ```bash
 git clone https://github.com/alexinatra2/holo.git
-cd holomorphic-tinkering
+cd holo
 ```
 
 ### 2. Run the program
@@ -175,7 +175,7 @@ cargo run "[FUNCTION]"
   ```bash
   cargo run "[FUNCTION]"
   ```
-- **Image Transformation**:
+- **Image Transformation** (Path relative to project-root, e.q. examples:
   ```bash
   cargo run "[FUNCTION]" -i [path]
   ```
