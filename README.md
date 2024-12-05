@@ -99,6 +99,7 @@ cargo run "[FUNCTION]"
 ---
 
 ## **Beispiele**
+Alle möglichen Parameter sowohl für Webcam- als auch für Bildertransformation verfügbar. (siehe Verfügbare Optionen)
 
 ### Webcam Transformation
 1. Polynomische Funktion:
