@@ -77,7 +77,7 @@ Das Projekt nutzt holomorphe Funktionen, um komplexe Bildtransformationen durchz
 
 ### 1. Repository klonen
 ```bash
-git clone https://github.com/alexinatra2/holomorphic-tinkering.git
+git clone https://github.com/alexinatra2/holo.git
 cd holomorphic-tinkering
 ```
 
@@ -162,7 +162,7 @@ The project utilizes holomorphic functions to perform complex image transformati
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/alexinatra2/holomorphic-tinkering.git
+git clone https://github.com/alexinatra2/holo.git
 cd holomorphic-tinkering
 ```
 
