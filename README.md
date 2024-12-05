@@ -1,6 +1,6 @@
 # **Holomorphic-Tinkering** (Deutsch)
 
-Dieses Projekt kombiniert Rust und WebAssembly, um Bildverarbeitungsalgorithmen im Browser auszuführen. Es verwendet eine Rust-Bibliothek, die in WebAssembly kompiliert wird, um Bilder zu transformieren und zu manipulieren. Die Frontend-Anwendung (HINWEIS: nicht komplett implementiert, erfordert Nachbesserung) ist in React geschrieben und ermöglicht es Benutzern, Bilder hochzuladen und zu transformieren oder die Transformationen in Echtzeit zu sehen via Webcam.
+Dieses Projekt kombiniert Rust und WebAssembly, um Bildverarbeitungsalgorithmen im Browser auszuführen. Es verwendet eine Rust-Bibliothek, die in WebAssembly kompiliert wird, um Bilder zu transformieren und zu manipulieren. Die Frontend-Anwendung (HINWEIS: nicht komplett implementiert, erfordert Nachbesserungen) ist in React geschrieben und ermöglicht es Benutzern, Bilder hochzuladen und zu transformieren oder die Transformationen in Echtzeit zu sehen via Webcam.
 
 Das Projekt nutzt holomorphe Funktionen, um komplexe Bildtransformationen durchzuführen. Holomorphe Funktionen sind in der komplexen Analysis von Bedeutung und ermöglichen es, glatte und kontinuierliche Transformationen auf Bildern anzuwenden, was zu beeindruckenden visuellen Effekten führt.
 
@@ -33,7 +33,7 @@ Das Projekt nutzt holomorphe Funktionen, um komplexe Bildtransformationen durchz
       ```bash
       npm install --global pnpm
       ```
-    - Abhängigkeiten installieren und das Frontend ausführen (HINWEIS: nicht komplett implementiert, erfordert Nachbesserung, bis dahin diese folgenden (1. bis 3.) Schritte überspringen:
+    - Abhängigkeiten installieren und das Frontend ausführen (HINWEIS: nicht komplett implementiert, erfordert Nachbesserungen, bis dahin diese folgenden (a bis c) Schritte überspringen:
         1. Navigieren Sie zum Projektverzeichnis.
         2. Führen Sie folgende Befehle aus:
         ```bash
